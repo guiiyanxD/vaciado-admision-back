@@ -13,7 +13,7 @@ class Connection{
     public function __construct() {
         if($this->bigQuery == null){
             $this->bigQuery = new BigQueryClient([
-                'keyFilePath' => '../plenary-glass-470415-k1-8060526602ec.json',
+               
                 'projectId' => 'plenary-glass-470415-k1',
             ]);
             $this->dataset = $this->bigQuery->dataset('AdmisionVaciado');
