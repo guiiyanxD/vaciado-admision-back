@@ -1,133 +1,156 @@
 <?php
 require_once("../negocio/Formulario/NFormulario.php");
-header("Access-Control-Allow-Origin: https://admision--vaciado-463127106629.us-central1.run.app/");
+
+// ========================================
+// CONFIGURACIÓN CORS
+// ========================================
+// IMPORTANTE: Sin la barra diagonal al final
+header("Access-Control-Allow-Origin: https://admision--vaciado-463127106629.us-central1.run.app");
 header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
 header("Access-Control-Allow-Headers: Content-Type, Authorization, X-Requested-With");
 header("Access-Control-Allow-Credentials: true");
-header('Content-Type: application/json; charset=utf-8');
-/**
- * Aqui empiezan las rutas de Cargo
- */
+header("Content-Type: application/json; charset=utf-8");
 
-if ($_SERVER['REQUEST_METHOD'] == 'GET' && $_SERVER['REQUEST_URI'] === '/') {        
-   echo "chau";
+// Maneja peticiones preflight OPTIONS
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit(0);
 }
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/formulario') {     
-    
+// ========================================
+// RUTAS
+// ========================================
+
+if ($_SERVER['REQUEST_METHOD'] == 'GET' && $_SERVER['REQUEST_URI'] === '/') {
+    http_response_code(200);
+    echo json_encode(['message' => 'chau']);
+    exit;
+}
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/formulario') {
     $json = file_get_contents('php://input');
     $data = json_decode($json, true);
     $formulario = new NFormulario();
     $formulario->guardarDatos($data);
-    
 
     http_response_code(200);
     echo json_encode([
         'status' => 'success',
         'message' => 'Datos guardados correctamente',
-        'received_data' => $data // Opcional: para debugging
+        'received_data' => $data
     ]);
+    exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] == 'GET' && $_SERVER['REQUEST_URI'] === '/servicios') {        
-    $formulario  = new NFormulario();
-    return $formulario->getServicios();
+if ($_SERVER['REQUEST_METHOD'] == 'GET' && $_SERVER['REQUEST_URI'] === '/servicios') {
+    $formulario = new NFormulario();
+    $result = $formulario->getServicios();
+    
+    http_response_code(200);
+    echo json_encode([
+        'status' => 'success',
+        'data' => $result
+    ]);
+    exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] == 'GET' && $_SERVER['REQUEST_URI'] === '/servicios') {        
-    $formulario  = new NFormulario();
-    return $formulario->getServicios();
+if ($_SERVER['REQUEST_METHOD'] == 'GET' && $_SERVER['REQUEST_URI'] === '/especialidades') {
+    $formulario = new NFormulario();
+    $result = $formulario->getEspecialidades();
+    
+    http_response_code(200);
+    echo json_encode([
+        'status' => 'success',
+        'data' => $result
+    ]);
+    exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] == 'GET' && $_SERVER['REQUEST_URI'] === '/especialidades') {        
-    $formulario  = new NFormulario();
-    return $formulario->getEspecialidades();
-}
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/totalAyer') {
+    $json = file_get_contents('php://input');
+    $data = json_decode($json, true);
 
-function getParametrosGet() {
-    $parametros = [];
-    foreach ($_GET as $key => $value) {
-        $parametros[$key] = filter_input(INPUT_GET, $key, FILTER_UNSAFE_RAW);
+    if (!isset($data['fecha']) || !isset($data['servicio'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Missing required parameters: fecha and servicio']);
+        exit;
     }
-    return $parametros;
+
+    $formulario = new NFormulario();
+    $total = $formulario->getTotalAyer($data);
+    
+    http_response_code(200);
+    echo json_encode([
+        'status' => 'success',
+        'data' => $total
+    ]);
+    exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $request_path = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/totalAyer2') {
+    $json = file_get_contents('php://input');
+    $data = json_decode($json, true);
 
-    if ($request_path === '/totalAyer') {
-
-        $fecha = $_POST['fecha'] ?? null;
-        $servicio = $_POST['servicio'] ?? null;
-
-        if ($fecha === null || $servicio === null) {
-            http_response_code(400); // Bad Request
-            echo json_encode(['error' => 'Missing required parameters: fecha and servicio']);
-            exit;
-        }
-        $data = ['fecha' => $fecha, 'servicio' => $servicio];
+    if (isset($data['fecha']) && isset($data['servicio'])) {
         $formulario = new NFormulario();
-
-        // Get the total and return a JSON response
         $total = $formulario->getTotalAyer($data);
+        
         http_response_code(200);
         echo json_encode([
             'status' => 'success',
             'data' => $total
         ]);
         exit;
+    } else {
+        http_response_code(400);
+        echo json_encode(['error' => 'Missing required parameters']);
+        exit;
     }
 }
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/totalAyer2') {     
-    
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/verificarYGuardar') {
     $json = file_get_contents('php://input');
     $data = json_decode($json, true);
     
-
-    if ($data['fecha'] !== null || $data['servicio'] !== null) {
-        $formulario = new NFormulario();
-        $total = $formulario->getTotalAyer($data);
-        
-        http_response_code(200);
-        echo json_encode([
-            'status' => 'success',
-            'data' => ($total)
-        ]);
-        exit;
-    }else{
-        http_response_code(400);
-        echo json_encode(['error' => $data]);
-        exit;
-    }
+    $formulario = new NFormulario();
+    $result = $formulario->verificarYGuardar($data);
     
-}  
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/verificarYGuardar') {     
+    http_response_code(200);
+    echo json_encode([
+        'status' => 'success',
+        'data' => $result
+    ]);
+    exit;
+}
 
-        
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/buscar') {
+    $json = file_get_contents('php://input');
+    $data = json_decode($json, true);
 
-        $json = file_get_contents('php://input');
-        $data = json_decode($json, true);
-        
-        $formulario = new NFormulario();
-        $total = $formulario->verificarYGuardar($data);
-        
-        
-}  
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/buscar') {     
+    $formulario = new NFormulario();
+    $result = $formulario->buscar($data);
     
-        $json = file_get_contents('php://input');
-        $data = json_decode($json, true);
-    
-        $formulario = new NFormulario();
-        $total = $formulario->buscar($data);
-        
-} 
+    http_response_code(200);
+    echo json_encode([
+        'status' => 'success',
+        'data' => $result
+    ]);
+    exit;
+}
 
-if ($_SERVER['REQUEST_METHOD'] == 'GET' && $_SERVER['REQUEST_URI'] === '/comprobarMes') {     
-
+if ($_SERVER['REQUEST_METHOD'] == 'GET' && $_SERVER['REQUEST_URI'] === '/comprobarMes') {
+    $formulario = new NFormulario();
+    $result = $formulario->comprobarMes("2025-08-08");
     
-        $formulario = new NFormulario();
-        $total = $formulario->comprobarMes ("2025-08-08");
-        
-} 
+    http_response_code(200);
+    echo json_encode([
+        'status' => 'success',
+        'data' => $result
+    ]);
+    exit;
+}
+
+// Ruta no encontrada
+http_response_code(404);
+echo json_encode(['error' => 'Endpoint not found']);
+exit;
