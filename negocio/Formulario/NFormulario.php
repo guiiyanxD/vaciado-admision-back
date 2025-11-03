@@ -8,13 +8,6 @@ require_once("../datos/Formulario/DFormulario.php");
             $this->DFormulario = new DFormulario();
         }
         
-        public function mostrar() {
-           return "Hola Mundo";
-        }
-
-        public function procesar() {
-            // Lógica para procesar el formulario
-        }
 
         public function getServicios(){
             $servicios = $this->DFormulario->getServicios();
@@ -23,6 +16,7 @@ require_once("../datos/Formulario/DFormulario.php");
                 'status' => 'success',
                 'data' => $servicios
             ]);
+            exit;
         }
 
         public function getEspecialidades(){
@@ -32,6 +26,7 @@ require_once("../datos/Formulario/DFormulario.php");
                 'status' => 'success',
                 'data' => $especialidades
             ]);
+            exit;
         }
 
         public function guardarDatos($data) {
@@ -140,9 +135,7 @@ require_once("../datos/Formulario/DFormulario.php");
 
             }
         }
-        public function determinarEditable($resultado){
-            
-        }
+
 
         public function comprobarMes($fecha){
             $fechaActual = new DateTime('', new DateTimeZone('America/La_Paz'));
