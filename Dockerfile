@@ -1,60 +1,48 @@
-# --------------------------------------------------------------------
-# ETAPA 1: BUILDER (Composer)
-# Usa la imagen de Composer para instalar dependencias de PHP
-# --------------------------------------------------------------------
-FROM composer:2.7 AS builder
+#Usa la imagen oficial de PHP 8.2 con Apache
+FROM php:8.2-apache
 
-# Instalar dependencias del sistema para la compilación de PHP (libpq-dev)
-# Nota: Utilizamos apt-get porque la imagen base de composer lo usa
+# Instala dependencias del sistema necesarias
 RUN apt-get update && apt-get install -y \
-    libzip-dev \
+    git \
+    unzip \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Establecer el directorio de trabajo
-WORKDIR /app
+# Instala y habilita la extensión PDO PostgreSQL
+RUN docker-php-ext-install pdo_pgsql
 
-# Copiar archivos de configuracion de dependencias
-COPY composer.json composer.lock ./
+# Instala Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Instalar las dependencias de produccion
-RUN composer install \
-    --prefer-dist \
-    --no-dev \
-    --no-scripts \
-    --optimize-autoloader
+# Establece el directorio de trabajo
+WORKDIR /var/www/html
 
-# Copiar el resto del codigo fuente de la aplicacion
+# Copia los archivos composer primero (para aprovechar el cache de Docker)
+COPY composer.json composer.lock* ./
+
+# Instala las dependencias de PHP (dotenv)
+RUN composer install --no-dev --optimize-autoloader --no-interaction
+
+# Copia el resto de la aplicación
 COPY . .
 
-# --------------------------------------------------------------------
-# ETAPA 2: PRODUCCIÓN (RUNTIME CON NGINX Y PHP-FPM)
-# Usamos php:8.2-fpm-alpine que es ligero para el runtime
-# --------------------------------------------------------------------
-FROM php:8.2-fpm-alpine
+# Configura Apache para que apunte a la carpeta public
+RUN sed -i 's!/var/www/html!/var/www/html/public!g' /etc/apache2/sites-available/000-default.conf
 
-# Instalar Nginx y las extensiones de PHP necesarias
-RUN apk add --no-cache nginx postgresql-dev \
-    # Compila e instala las extensiones pdo y pdo_pgsql
-    && docker-php-ext-install pdo pdo_pgsql opcache \
-    # Limpia el cache de paquetes
-    && rm -rf /var/cache/apk/*
+# Habilita mod_rewrite para URLs amigables (si lo necesitas)
+RUN a2enmod rewrite
 
-# Copiar el archivo de configuracion de Nginx (definido a continuacion)
-COPY nginx-default.conf /etc/nginx/conf.d/default.conf
+# Ajusta permisos
+RUN chown -R www-data:www-data /var/www/html \
+    && chmod -R 755 /var/www/html
 
-# Establecer el directorio de trabajo
-WORKDIR /app
+# Cloud Run espera que el servicio escuche en el puerto definido por la variable PORT
+# Por defecto Apache escucha en el puerto 80, así que configuramos esto
+ENV PORT=8080
+RUN sed -i 's/80/${PORT}/g' /etc/apache2/sites-available/000-default.conf /etc/apache2/ports.conf
 
-# Copiar archivos de la aplicacion y dependencias resueltas de la etapa 'builder'
-COPY --from=builder /app /app
-
-# Configurar PHP-FPM para que escuche en el puerto 9000 (accesible por Nginx)
-RUN sed -i 's/listen = 127.0.0.1:9000/listen = 9000/' /usr/local/etc/php-fpm.d/zz-docker.conf
-
-# Cloud Run requiere que se exponga el puerto de escucha (8080)
+# Expone el puerto
 EXPOSE 8080
 
-# Comando de ejecucion: Inicia PHP-FPM en segundo plano (-D) y Nginx en primer plano.
-# Nginx escuchara en 8080 (el puerto de Cloud Run) y reenviara a FPM en 9000.
-CMD sh -c "php-fpm -D && nginx -g 'daemon off;'"
+# Inicia Apache en primer plano
+CMD ["apache2-foreground"]
