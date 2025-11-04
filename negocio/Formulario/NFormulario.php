@@ -93,22 +93,23 @@ require_once("../datos/Formulario/DFormulario.php");
             $temp = [];
             $i = 1;
             $camas_prestadas = (array_slice($data, 12));
-            
-                foreach ($camas_prestadas as $key => $value) {
-                    if( $i <4){
-                        if( ($data['especialidad'.$i] !== "null") && ($data['cantidad'.$i] > 0) && ($data['tipo_ingreso'.$i] !== "null") ){
-                            $temp = [
-                                'fecha' => $data['fecha'],
-                                'servicio' => $data['servicio'],
-                                'especialidad' => $data['especialidad'.$i],
-                                'cantidad' => (int)$data['cantidad'.$i],
-                                'tipo_ingreso' => $data['tipo_ingreso'.$i]
-                            ];
-                            array_push($rowData, $temp);
-                        }
-                        $i++;
+            print_r($camas_prestadas);
+            foreach ($camas_prestadas as $key => $value) {
+                if( $i <4){
+                    if( ($data['especialidad'.$i] !== "null") && ($data['cantidad'.$i] > 0) && ($data['tipo_ingreso'.$i] !== "null") ){
+                        $temp = [
+                            'fecha' => $data['fecha'],
+                            'servicio' => $data['servicio'],
+                            'especialidad' => $data['especialidad'.$i],
+                            'cantidad' => (int)$data['cantidad'.$i],
+                            'tipo_ingreso' => $data['tipo_ingreso'.$i]
+                        ];
+                        array_push($rowData, $temp);
                     }
-                } 
+                    $i++;
+                }
+            }
+            print_r($rowData); 
             return $rowData; 
         }
 
