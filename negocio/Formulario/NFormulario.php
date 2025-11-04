@@ -108,9 +108,7 @@ require_once("../datos/Formulario/DFormulario.php");
                     }
                     $i++;
                 }
-            }
-            print_r($rowData); 
-            print_r($limite); 
+            } 
             return $rowData; 
         }
 
