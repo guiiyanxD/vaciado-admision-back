@@ -90,11 +90,12 @@ require_once("../datos/Formulario/DFormulario.php");
         public function separarCamasPrestadasValidas($data){
             $rowData = [];
             $temp = [];
-            $i = 1;
+            
             $camas_prestadas = (array_slice($data, 12));
-            print_r($camas_prestadas);
+            $i = 0;
+            $limite = count($camas_prestadas)/3;
             foreach ($camas_prestadas as $key => $value) {
-                if( $i <4){
+                if( $i < $limite){
                     if( ($data['especialidad'.$i] !== "null") && ($data['cantidad'.$i] > 0) && ($data['tipo_ingreso'.$i] !== "null") ){
                         $temp = [
                             'fecha' => $data['fecha'],
@@ -109,6 +110,7 @@ require_once("../datos/Formulario/DFormulario.php");
                 }
             }
             print_r($rowData); 
+            print_r($limite); 
             return $rowData; 
         }
 
