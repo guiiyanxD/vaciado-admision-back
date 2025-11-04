@@ -114,13 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/verifi
     
     $formulario = new NFormulario();
     $result = $formulario->verificarYGuardar($data);
-    
-    http_response_code(200);
-    echo json_encode([
-        'status' => 'success',
-        'data' => $result
-    ]);
-    exit;
+
 }
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/buscar') {

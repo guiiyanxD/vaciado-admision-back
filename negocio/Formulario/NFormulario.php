@@ -58,7 +58,6 @@ require_once("../datos/Formulario/DFormulario.php");
                
                 if(!empty($camasPrestadas)){
                    $response = $this->DFormulario->guardarCamasPrestadas($camasPrestadas);
-                   exit();
                 }
                 
                 $filasInsertadas = $this->DFormulario->verificarYGuardar($data);
