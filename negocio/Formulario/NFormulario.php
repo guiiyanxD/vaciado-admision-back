@@ -95,7 +95,7 @@ require_once("../datos/Formulario/DFormulario.php");
             $camas_prestadas = (array_slice($data, 12));
             
                 foreach ($camas_prestadas as $key => $value) {
-                    if( $i <6){
+                    if( $i <4){
                         if( ($data['especialidad'.$i] !== "null") && ($data['cantidad'.$i] > 0) && ($data['tipo_ingreso'.$i] !== "null") ){
                             $temp = [
                                 'fecha' => $data['fecha'],
