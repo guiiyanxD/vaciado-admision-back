@@ -1,5 +1,7 @@
 <?php
 require_once("../negocio/Formulario/NFormulario.php");
+require_once("../negocio/Servicios/NServicios.php");
+require_once("../negocio/Especialidades/NEspecialidades.php");
 
 // ========================================
 // CONFIGURACIÓN CORS
@@ -43,8 +45,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/formul
 }
 
 if ($_SERVER['REQUEST_METHOD'] == 'GET' && $_SERVER['REQUEST_URI'] === '/servicios') {
-    $formulario = new NFormulario();
-    $result = $formulario->getServicios();
+    $Servicios = new NServicios();
+    $result = $Servicios->getAllServicios();
     
     http_response_code(200);
     echo json_encode([
@@ -55,8 +57,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && $_SERVER['REQUEST_URI'] === '/servici
 }
 
 if ($_SERVER['REQUEST_METHOD'] == 'GET' && $_SERVER['REQUEST_URI'] === '/especialidades') {
-    $formulario = new NFormulario();
-    $result = $formulario->getEspecialidades();
+    $especialidades = new NEspecialidades();
+    $result = $especialidades->getAllEspecialidades();
     
     http_response_code(200);
     echo json_encode([
@@ -113,7 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/verifi
     $data = json_decode($json, true);
     
     $formulario = new NFormulario();
-    $result = $formulario->verificarYGuardar($data);
+    $result = $formulario->saveDatosToPgsql($data);
 
 }
 

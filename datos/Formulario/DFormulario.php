@@ -1,217 +1,307 @@
-<?php 
+<?php
+
+/**
+ * Modelo de Datos Refactorizado para Censo y Camas Prestadas
+ * 
+ * Maneja operaciones CRUD con PostgreSQL
+ */
 require_once("../config/connection.php");
-    class DFormulario {
-        
-        private $conn;
-        
-        public function __construct(){
-            $this->conn = new Connection();
-        }
+require_once("../config/Pgsql.php");
+class DFormulario {
+    
+    private $conexion;
+    
+    public function __construct($conexion) {
+        $this->conexion = $conexion;
+    }
 
-        public function getServicios(){
-            $query = "SELECT * FROM `plenary-glass-470415-k1.AdmisionVaciado.servicios` order by nombre ASC";
-            $stmt = $this->conn->getBigQuery()->query($query);
-            $queryResults = $this->conn->getBigQuery()->runQuery($stmt);
-            $i = 0;
-            $array = [];
-            foreach ($queryResults as $row) {
-                $array[$i]['nombre'] = $row['nombre'];    
-                $array[$i]['cant_camas'] = $row['cant_camas'];
-                $array[$i]['especialidad'] = $row['especialidad'];
-                $i++;
-            }
-            return $array;
-        }
+    // =====================================================
+    // TRANSACCIONES
+    // =====================================================
 
-        public function getEspecialidades(){
-            $query = "SELECT * FROM `plenary-glass-470415-k1.AdmisionVaciado.especialidades` order by nombre ASC";
-            $stmt = $this->conn->getBigQuery()->query($query);
-            $queryResults = $this->conn->getBigQuery()->runQuery($stmt);
-            $i = 0;
-            $array = [];
-            foreach ($queryResults as $row) {
-                $array[$i]['id'] = $row['id'];    
-                $array[$i]['nombre'] = $row['nombre'];    
-                $i++;
-            }
-            return $array;
-        }
+    public function iniciarTransaccion() {
+        pg_query($this->conexion, "BEGIN");
+    }
 
-        public function guardarDatos($data) {
-            $query = "INSERT INTO `plenary-glass-470415-k1.AdmisionVaciado.movimiento_hospitalario` (fecha, servicio, ingreso, ing_traslado, egreso, egreso_traslado, obito, aislamiento, bloqueada, total, dotacion, libre) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-            $rowData = [
-                'fecha'             => $data['fecha'], 
-                'servicio'          => $data['servicio'], 
-                'ingreso'           => $data['ingreso'], 
-                'ing_traslado'      => $data['ingreso_traslado'], 
-                'egreso'            => $data['egreso'], 
-                'egreso_traslado'   => $data['egreso_traslado'], 
-                'obito'             => $data['obito'], 
-                'aislamiento'       => $data['aislamiento'],
-                'bloqueada'         => $data['bloqueada'], 
-                'total'             => $data['total'], 
-                'dotacion'          => $data['dotacion'], 
-                'libre'             => $data['libres'],
-            ];
-            $table = $this->conn->getTable();
-            try {
-                // Insertar con formato correcto
-                $response = $table->insertRows([
-                    ['data' => $rowData]
-                ]);
-                
-                if ($response->isSuccessful()) {
-                    echo json_encode([
-                        'status' => 'success',
-                        'message' => 'Datos insertados correctamente'
-                    ]);
-                } else {
-                    $message = "";
-                    
-                    // Debug detallado
-                    $failedRows = $response->failedRows();
-                    if (!empty($failedRows)) {
-                        foreach ($failedRows as $index => $failedRow) {
-                            $message .=   "Fila {$index} falló:\n";
-                            foreach ($failedRow['errors'] as $error) {
-                                $message .= "  - {$error['reason']}: {$error['message']}\n";
-                            }
-                        }
-                    }
+    public function confirmarTransaccion() {
+        pg_query($this->conexion, "COMMIT");
+    }
 
-                    echo json_encode([
-                        'status' => 'error',
-                        'message' => $message,
-                    ]);
-                }
-                
-            } catch (\Google\Cloud\Core\Exception\GoogleException $e) {
-                echo " Google Exception: " . $e->getMessage() . "\n";
-                return false;
-            } catch (Exception $e) {
-                echo " General Exception: " . $e->getMessage() . "\n";
-                return false;
-            }
-        }
+    public function revertirTransaccion() {
+        pg_query($this->conexion, "ROLLBACK");
+    }
 
-        public function getTotalAyer($data) {
-            $query = "SELECT fecha, servicio, total as total FROM `plenary-glass-470415-k1.AdmisionVaciado.movimiento_hospitalario` WHERE fecha = '".$data['fecha']."' AND servicio = '".$data['servicio']."'";
-            $stmt = $this->conn->getBigQuery()->query($query);
-            $queryResults = $this->conn->getBigQuery()->runQuery($stmt);
-            $totalAyer = -2;
-            foreach ($queryResults as $row) {
-                $totalAyer = $row['total'];
-            }
-            return $totalAyer;
-        }
+    // =====================================================
+    // CENSO PRINCIPAL
+    // =====================================================
 
-        public function verificarYGuardar($data){
-            $query = "MERGE `plenary-glass-470415-k1.AdmisionVaciado.movimiento_hospitalario` AS T
-                    USING (
-                        SELECT
-                            '".$data['fecha']."' AS fecha,
-                            '".$data['servicio']."' AS servicio,
-                            ".$data['ingreso']." AS ingreso,
-                            ".$data['ingreso_traslado']." AS ing_traslado,
-                            ".$data['egreso']." AS egreso,
-                            ".$data['egreso_traslado']." AS egreso_traslado,
-                            ".$data['obito']." AS obito,
-                            ".$data['aislamiento']." AS aislamiento,
-                            ".$data['bloqueada']." AS bloqueada,
-                            ".$data['total']." AS total,
-                            ".$data['dotacion']." AS dotacion,
-                            ".$data['libre']." AS libre
-                        ) AS S
-                    ON T.fecha = S.fecha AND T.servicio = S.servicio
-                    WHEN NOT MATCHED THEN
-                        INSERT (fecha, servicio, ingreso, ing_traslado, egreso, egreso_traslado, obito, libre, bloqueada, aislamiento, dotacion, total)
-                        VALUES (S.fecha, S.servicio, S.ingreso, S.ing_traslado, S.egreso, S.egreso_traslado, S.obito, S.libre, S.bloqueada, S.aislamiento, S.dotacion, S.total)";
+    /**
+     * Verificar si existe un censo y guardarlo/actualizarlo
+     * 
+     * @param array $data Datos del censo
+     * @return int Número de filas afectadas
+     */
+    public function verificarYGuardar($data) {
+        // Verificar si ya existe un registro para esta fecha + servicio
+        $existe = $this->verificarExistencia($data['fecha'], $data['servicio']);
 
-            $bigQuery = $this->conn->getBigQuery();
-
-            try {
-                $job = $bigQuery->runQuery($bigQuery->query($query), [
-                    'configuration' => [
-                        'query' => [
-                            'useLegacySql' => false
-                        ]
-                    ]
-                ]);
-
-                $job->waitUntilComplete();
-
-                if ($job->isComplete()) {
-                    return $job->info()["numDmlAffectedRows"];                    
-                } else {
-                    $error = $job->info()['status']['errorResult'] ?? 'Unknown error';
-                    throw new \Exception('BigQuery job failed: ' . json_encode($error));
-                }
-            } catch (\Google\Cloud\Core\Exception\ServiceException $e) {
-                throw new \Exception("Error en la operación de BigQuery: " . $e->getMessage());
-            }
-        }
-
-        public function buscar($data){
-            if($data['servicioBuscar'] !== "todos"){
-                $query =" SELECT * FROM `plenary-glass-470415-k1.AdmisionVaciado.movimiento_hospitalario` WHERE fecha BETWEEN '".$data['fechaInicio']."' AND '".$data['fechaFin']."' AND servicio='".$data['servicioBuscar']."' order by fecha ASC";
-            }else{
-                $query =" SELECT * FROM `plenary-glass-470415-k1.AdmisionVaciado.movimiento_hospitalario` WHERE fecha BETWEEN '".$data['fechaInicio']."' AND '".$data['fechaFin']."' ORDER BY fecha ASC";
-            }
-            $stmt = $this->conn->getBigQuery()->query($query);
-            $queryResults = $this->conn->getBigQuery()->runQuery($stmt);
-            $i = 0;
-            $array = [];
-            foreach ($queryResults as $row) {
-                $array[$i]['fecha'] = $row['fecha'];    
-                $array[$i]['servicio'] = $row['servicio'];
-                $array[$i]['ingreso'] = $row['ingreso'];
-                $array[$i]['ing_traslado'] = $row['ing_traslado'];
-                $array[$i]['egreso'] = $row['egreso'];
-                $array[$i]['egreso_traslado'] = $row['egreso_traslado'];
-                $array[$i]['obito'] = $row['obito'];
-                $array[$i]['aislamiento'] = $row['aislamiento'];
-                $array[$i]['bloqueada'] = $row['bloqueada'];
-                $array[$i]['total'] = $row['total'];
-                $i++;
-            }
-            return $array;
-        }
-
-        public function guardarCamasPrestadas($camasPrestadas){
-            $table = $this->conn->getBigQuery()->dataset('AdmisionVaciado')->table('camas_prestadas');
-            $rows = [];
-            foreach ($camasPrestadas as $row) {
-                $rows[] = ['data' => $row];
-            }
-            try {
-               
-              
-                $response = $table->insertRows($rows);
-                if ($response->isSuccessful()) {
-                    return true;
-                } else {
-                    $message = "";
-                    
-                   
-                    $failedRows = $response->failedRows();
-                    if (!empty($failedRows)) {
-                        foreach ($failedRows as $index => $failedRow) {
-                            $message .=   "Fila {$index} falló:\n";
-                            foreach ($failedRow['errors'] as $error) {
-                                $message .= "  - {$error['reason']}: {$error['message']}\n";
-                            }
-                        }
-                    }
-                    throw new \Exception('Error al insertar filas: ' . $message);
-
-                }
-                
-            } catch (\Google\Cloud\Core\Exception\GoogleException $e) {
-                echo " Google Exception: " . $e->getMessage() . "\n";
-                return false;
-            } catch (Exception $e) {
-                echo " General Exception: " . $e->getMessage() . "\n";
-                return false;
-            }
+        if ($existe) {
+            // Actualizar registro existente
+            return $this->actualizarCenso($data);
+        } else {
+            // Insertar nuevo registro
+            return $this->insertarCenso($data);
         }
     }
+
+    /**
+     * Verificar si existe un censo para una fecha y servicio
+     * 
+     * @param string $fecha
+     * @param string $servicio
+     * @return bool
+     */
+    private function verificarExistencia($fecha, $servicio) {
+        $query = "SELECT COUNT(*) as total FROM censo 
+                  WHERE fecha = $1 AND servicio = $2";
+        
+        $result = pg_query_params($this->conexion, $query, [$fecha, $servicio]);
+        
+        if (!$result) {
+            throw new Exception("Error al verificar existencia: " . pg_last_error($this->conexion));
+        }
+
+        $row = pg_fetch_assoc($result);
+        return (int)$row['total'] > 0;
+    }
+
+    /**
+     * Insertar nuevo censo
+     * 
+     * @param array $data
+     * @return int Filas insertadas
+     */
+    private function insertarCenso($data) {
+        $query = "INSERT INTO censo (
+                    fecha, servicio, ingreso, ingreso_traslado, 
+                    egreso, egreso_traslado, obito, aislamiento, 
+                    bloqueada, total, libre, dotacion
+                  ) VALUES (
+                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+                  )";
+
+        $params = [
+            $data['fecha'],
+            $data['servicio'],
+            (int)$data['ingreso'],
+            (int)$data['ingreso_traslado'],
+            (int)$data['egreso'],
+            (int)$data['egreso_traslado'],
+            (int)$data['obito'],
+            (int)$data['aislamiento'],
+            (int)$data['bloqueada'],
+            (int)$data['total'],
+            (int)$data['libre'],
+            (int)$data['dotacion']
+        ];
+
+        $result = pg_query_params($this->conexion, $query, $params);
+
+        if (!$result) {
+            throw new Exception("Error al insertar censo: " . pg_last_error($this->conexion));
+        }
+
+        return pg_affected_rows($result);
+    }
+
+    /**
+     * Actualizar censo existente
+     * 
+     * @param array $data
+     * @return int Filas actualizadas
+     */
+    private function actualizarCenso($data) {
+        $query = "UPDATE censo SET 
+                    ingreso = $3,
+                    ingreso_traslado = $4,
+                    egreso = $5,
+                    egreso_traslado = $6,
+                    obito = $7,
+                    aislamiento = $8,
+                    bloqueada = $9,
+                    total = $10,
+                    libre = $11,
+                    dotacion = $12
+                  WHERE fecha = $1 AND servicio = $2";
+
+        $params = [
+            $data['fecha'],
+            $data['servicio'],
+            (int)$data['ingreso'],
+            (int)$data['ingreso_traslado'],
+            (int)$data['egreso'],
+            (int)$data['egreso_traslado'],
+            (int)$data['obito'],
+            (int)$data['aislamiento'],
+            (int)$data['bloqueada'],
+            (int)$data['total'],
+            (int)$data['libre'],
+            (int)$data['dotacion']
+        ];
+
+        $result = pg_query_params($this->conexion, $query, $params);
+
+        if (!$result) {
+            throw new Exception("Error al actualizar censo: " . pg_last_error($this->conexion));
+        }
+
+        return pg_affected_rows($result);
+    }
+
+    // =====================================================
+    // CAMAS PRESTADAS
+    // =====================================================
+
+    /**
+     * Guardar múltiples camas prestadas
+     * 
+     * @param array $camasPrestadas Array de camas con estructura:
+     *                              [ {fecha, servicio, especialidad, cantidad, tipo_ingreso}, ... ]
+     * @return int Total de filas insertadas
+     */
+    public function guardarCamasPrestadas($camasPrestadas) {
+        if (empty($camasPrestadas)) {
+            return 0;
+        }
+
+        $totalInsertadas = 0;
+
+        foreach ($camasPrestadas as $cama) {
+            $query = "INSERT INTO camas_prestadas (
+                        fecha, servicio, especialidad, cantidad, tipo_ingreso
+                      ) VALUES (
+                        $1, $2, $3, $4, $5
+                      )
+                      ON CONFLICT (fecha, servicio, especialidad, tipo_ingreso) 
+                      DO UPDATE SET cantidad = EXCLUDED.cantidad";
+
+            $params = [
+                $cama['fecha'],
+                $cama['servicio'],
+                $cama['especialidad'],
+                (int)$cama['cantidad'],
+                $cama['tipo_ingreso']
+            ];
+
+            $result = pg_query_params($this->conexion, $query, $params);
+
+            if (!$result) {
+                throw new Exception("Error al guardar cama prestada: " . pg_last_error($this->conexion));
+            }
+
+            $totalInsertadas += pg_affected_rows($result);
+        }
+
+        return $totalInsertadas;
+    }
+
+    /**
+     * Eliminar todas las camas prestadas de una fecha y servicio específico
+     * Esto permite reemplazar completamente los registros en cada guardado
+     * 
+     * @param string $fecha
+     * @param string $servicio
+     * @return int Filas eliminadas
+     */
+    public function eliminarCamasPrestadas($fecha, $servicio) {
+        $query = "DELETE FROM camas_prestadas 
+                  WHERE fecha = $1 AND servicio = $2";
+
+        $result = pg_query_params($this->conexion, $query, [$fecha, $servicio]);
+
+        if (!$result) {
+            throw new Exception("Error al eliminar camas prestadas: " . pg_last_error($this->conexion));
+        }
+
+        return pg_affected_rows($result);
+    }
+
+    /**
+     * Obtener todas las camas prestadas de un censo específico
+     * 
+     * @param string $fecha
+     * @param string $servicio
+     * @return array Array de camas prestadas
+     */
+    public function obtenerCamasPrestadas($fecha, $servicio) {
+        $query = "SELECT id, fecha, servicio, especialidad, cantidad, tipo_ingreso 
+                  FROM camas_prestadas 
+                  WHERE fecha = $1 AND servicio = $2
+                  ORDER BY especialidad, tipo_ingreso";
+
+        $result = pg_query_params($this->conexion, $query, [$fecha, $servicio]);
+
+        if (!$result) {
+            throw new Exception("Error al obtener camas prestadas: " . pg_last_error($this->conexion));
+        }
+
+        $camas = [];
+        while ($row = pg_fetch_assoc($result)) {
+            $camas[] = $row;
+        }
+
+        return $camas;
+    }
+
+    /**
+     * Obtener el total de camas prestadas por servicio en una fecha
+     * 
+     * @param string $fecha
+     * @param string $servicio
+     * @return int Total de camas prestadas
+     */
+    public function contarCamasPrestadas($fecha, $servicio) {
+        $query = "SELECT COALESCE(SUM(cantidad), 0) as total 
+                  FROM camas_prestadas 
+                  WHERE fecha = $1 AND servicio = $2";
+
+        $result = pg_query_params($this->conexion, $query, [$fecha, $servicio]);
+
+        if (!$result) {
+            throw new Exception("Error al contar camas prestadas: " . pg_last_error($this->conexion));
+        }
+
+        $row = pg_fetch_assoc($result);
+        return (int)$row['total'];
+    }
+
+    // =====================================================
+    // CONSULTAS COMBINADAS
+    // =====================================================
+
+    /**
+     * Obtener censo completo con sus camas prestadas
+     * 
+     * @param string $fecha
+     * @param string $servicio
+     * @return array|null Datos completos o null si no existe
+     */
+    public function obtenerCensoCompleto($fecha, $servicio) {
+        // Obtener censo principal
+        $queryCenso = "SELECT * FROM censo WHERE fecha = $1 AND servicio = $2";
+        $resultCenso = pg_query_params($this->conexion, $queryCenso, [$fecha, $servicio]);
+
+        if (!$resultCenso || pg_num_rows($resultCenso) === 0) {
+            return null;
+        }
+
+        $censo = pg_fetch_assoc($resultCenso);
+
+        // Obtener camas prestadas
+        $censo['camas_prestadas'] = $this->obtenerCamasPrestadas($fecha, $servicio);
+
+        return $censo;
+    }
+}
+
+?>
