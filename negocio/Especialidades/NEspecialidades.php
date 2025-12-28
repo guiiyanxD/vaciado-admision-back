@@ -16,6 +16,7 @@ class NEspecialidades{
             'status' => 'success',
             'data' => $especialidades
         ]);
+        exit();
 
     }
 }
