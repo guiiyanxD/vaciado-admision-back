@@ -34,6 +34,38 @@ class DFormulario {
     }
 
     // =====================================================
+    // VALIDACIONES (NUEVO)
+    // =====================================================
+
+    /**
+     * Verificar que un servicio existe en la tabla servicios
+     * 
+     * @param string $nombreServicio
+     * @return bool
+     */
+    private function servicioExiste($nombreServicio) {
+        $query = "SELECT COUNT(*) as total FROM servicios WHERE nombre = :nombre";
+        $stmt = $this->pdo->prepare($query);
+        $stmt->execute([':nombre' => $nombreServicio]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return (int)$row['total'] > 0;
+    }
+
+    /**
+     * Verificar que una especialidad existe en la tabla especialidades
+     * 
+     * @param string $nombreEspecialidad
+     * @return bool
+     */
+    private function especialidadExiste($nombreEspecialidad) {
+        $query = "SELECT COUNT(*) as total FROM especialidades WHERE nombre = :nombre";
+        $stmt = $this->pdo->prepare($query);
+        $stmt->execute([':nombre' => $nombreEspecialidad]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return (int)$row['total'] > 0;
+    }
+
+    // =====================================================
     // CENSO PRINCIPAL
     // =====================================================
 
@@ -44,6 +76,11 @@ class DFormulario {
      * @return int Número de filas afectadas
      */
     public function verificarYGuardar($data) {
+        // NUEVO: Validar que el servicio existe
+        if (!$this->servicioExiste($data['servicio'])) {
+            throw new Exception("El servicio '{$data['servicio']}' no existe en el catálogo de servicios");
+        }
+
         // Verificar si ya existe un registro para esta fecha + servicio
         $existe = $this->verificarExistencia($data['fecha'], $data['servicio']);
 
@@ -192,6 +229,15 @@ class DFormulario {
         $stmt = $this->pdo->prepare($query);
 
         foreach ($camasPrestadas as $cama) {
+            // NUEVO: Validar que la especialidad existe
+            if (!$this->especialidadExiste($cama['especialidad'])) {
+                // Opción 1: Lanzar excepción (estricto)
+                throw new Exception("La especialidad '{$cama['especialidad']}' no existe en el catálogo");
+                
+                // Opción 2: Saltar esta cama y continuar (tolerante)
+                // continue;
+            }
+
             $result = $stmt->execute([
                 ':fecha' => $cama['fecha'],
                 ':servicio' => $cama['servicio'],
@@ -212,7 +258,6 @@ class DFormulario {
 
     /**
      * Eliminar todas las camas prestadas de una fecha y servicio específico
-     * Esto permite reemplazar completamente los registros en cada guardado
      * 
      * @param string $fecha
      * @param string $servicio
@@ -307,6 +352,71 @@ class DFormulario {
         return $censo;
     }
 
+    // =====================================================
+    // MÉTODOS AUXILIARES
+    // =====================================================
+
+    /**
+     * Obtener todos los servicios
+     * 
+     * @return array
+     */
+    public function obtenerServicios() {
+        $query = "SELECT id, nombre, cant_camas FROM servicios WHERE activo = TRUE ORDER BY nombre";
+        $stmt = $this->pdo->query($query);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Obtener todas las especialidades
+     * 
+     * @return array
+     */
+    public function obtenerEspecialidades() {
+        $query = "SELECT id, nombre FROM especialidades WHERE activo = TRUE ORDER BY nombre";
+        $stmt = $this->pdo->query($query);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Crear un nuevo servicio (NUEVO método auxiliar)
+     * 
+     * @param string $nombre
+     * @param int $cantCamas
+     * @return int ID del servicio creado
+     */
+    public function crearServicio($nombre, $cantCamas) {
+        $query = "INSERT INTO servicios (nombre, cant_camas) 
+                  VALUES (:nombre, :cant_camas) 
+                  RETURNING id";
+        
+        $stmt = $this->pdo->prepare($query);
+        $stmt->execute([
+            ':nombre' => $nombre,
+            ':cant_camas' => (int)$cantCamas
+        ]);
+        
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return (int)$row['id'];
+    }
+
+    /**
+     * Crear una nueva especialidad (NUEVO método auxiliar)
+     * 
+     * @param string $nombre
+     * @return int ID de la especialidad creada
+     */
+    public function crearEspecialidad($nombre) {
+        $query = "INSERT INTO especialidades (nombre) 
+                  VALUES (:nombre) 
+                  RETURNING id";
+        
+        $stmt = $this->pdo->prepare($query);
+        $stmt->execute([':nombre' => $nombre]);
+        
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return (int)$row['id'];
+    }
 }
 
 

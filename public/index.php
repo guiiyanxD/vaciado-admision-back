@@ -111,13 +111,11 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/totalA
 }
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/verificarYGuardar') {
-    //echo "LLEGO AQUI";
-    //exit();
     $json = file_get_contents('php://input');
     $data = json_decode($json, true);
     
     $formulario = new NFormulario();
-    $result = $formulario->verificarYGuardar($data);
+    $formulario->verificarYGuardar($data);
     //$result = $formulario->test();
 
 }
@@ -149,7 +147,3 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && $_SERVER['REQUEST_URI'] === '/comprob
     exit;
 }
 
-// Ruta no encontrada
-http_response_code(404);
-echo json_encode(['error' => 'Endpoint not found']);
-exit;

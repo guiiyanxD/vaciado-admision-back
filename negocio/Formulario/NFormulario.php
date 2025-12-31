@@ -15,6 +15,7 @@ class NFormulario {
      * @return array Respuesta con status, message y data
      */
     public function verificarYGuardar($data) {
+        
         try {
             // Validar que vengan los datos mínimos requeridos
             if (!isset($data['censo']) || !is_array($data['censo'])) {
@@ -32,40 +33,33 @@ class NFormulario {
             $this->DFormulario->iniciarTransaccion();
 
             try {
-                // 1. Guardar o actualizar el censo principal
                 $filasAfectadasCenso = $this->DFormulario->verificarYGuardar($censo);
                 
-                // 2. Procesar camas prestadas si existen
                 $filasAfectadasCamas = 0;
                 if (isset($data['camasPrestadas']) && is_array($data['camasPrestadas']) && count($data['camasPrestadas']) > 0) {
                     
-                    // Validar estructura de camas prestadas
                     $camasValidas = $this->validarCamasPrestadas($data['camasPrestadas']);
                     
                     if (count($camasValidas) > 0) {
-                        // Agregar fecha y servicio a cada cama prestada
                         $camasConRelacion = $this->agregarRelacionCenso($camasValidas, $censo['fecha'], $censo['servicio']);
                         
-                        // Primero eliminar camas prestadas anteriores de esta fecha+servicio
                         $this->DFormulario->eliminarCamasPrestadas($censo['fecha'], $censo['servicio']);
                         
-                        // Luego insertar las nuevas
                         $filasAfectadasCamas = $this->DFormulario->guardarCamasPrestadas($camasConRelacion);
                     }
                 }
 
-                // Commit de la transacción
                 $this->DFormulario->confirmarTransaccion();
 
-                // Respuesta exitosa
+                
                 $totalFilas = $filasAfectadasCenso + $filasAfectadasCamas;
                 $mensaje = sprintf(
                     "Operación exitosa: %d registro(s) de censo, %d cama(s) prestada(s)",
                     $filasAfectadasCenso,
                     $filasAfectadasCamas
                 );
-
-                return $this->respuestaExito(200, $mensaje, [
+                
+                $this->respuestaExito(200, $mensaje, [
                     'censo' => $filasAfectadasCenso,
                     'camas_prestadas' => $filasAfectadasCamas,
                     'total' => $totalFilas
@@ -79,7 +73,7 @@ class NFormulario {
             }
 
         } catch (Exception $e) {
-            return $this->respuestaError(500, 'Error al procesar datos: ' . $e->getMessage());
+            $this->respuestaError(500, 'Error al procesar datos: ' . $e->getMessage());
         }
     }
 
@@ -186,11 +180,11 @@ class NFormulario {
      */
     private function respuestaExito($codigo, $mensaje, $data = null) {
         http_response_code($codigo);
-        [
+        echo json_encode([
             'status' => 'success',
             'message' => $mensaje,
             'data' => $data
-        ];
+        ]);
     }
 
     /**
@@ -202,10 +196,10 @@ class NFormulario {
      */
     private function respuestaError($codigo, $mensaje) {
         http_response_code($codigo);
-        return [
+        echo json_encode( [
             'status' => 'failed',
             'message' => $mensaje
-        ];
+        ]);
     }
 
     public function test(){
