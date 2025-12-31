@@ -29,7 +29,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && $_SERVER['REQUEST_URI'] === '/') {
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/formulario') {
+/*if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/formulario') {
     $json = file_get_contents('php://input');
     $data = json_decode($json, true);
     $formulario = new NFormulario();
@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/formul
         'received_data' => $data
     ]);
     exit;
-}
+}*/
 
 if ($_SERVER['REQUEST_METHOD'] == 'GET' && $_SERVER['REQUEST_URI'] === '/servicios') {
     $Servicios = new NServicios();
@@ -111,11 +111,14 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/totalA
 }
 
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/verificarYGuardar') {
+    //echo "LLEGO AQUI";
+    //exit();
     $json = file_get_contents('php://input');
     $data = json_decode($json, true);
     
     $formulario = new NFormulario();
-    $result = $formulario->saveDatosToPgsql($data);
+    $result = $formulario->verificarYGuardar($data);
+    //$result = $formulario->test();
 
 }
 

@@ -10,9 +10,11 @@ require_once("../config/Pgsql.php");
 class DFormulario {
     
     private $conexion;
+    private $pdo;
     
-    public function __construct($conexion) {
-        $this->conexion = $conexion;
+    public function __construct() {
+        $this->conexion = PgsqlConnection::getInstance();
+        $this->pdo = $this->conexion->getConnection();
     }
 
     // =====================================================
@@ -20,15 +22,15 @@ class DFormulario {
     // =====================================================
 
     public function iniciarTransaccion() {
-        pg_query($this->conexion, "BEGIN");
+        $this->pdo->beginTransaction();
     }
 
     public function confirmarTransaccion() {
-        pg_query($this->conexion, "COMMIT");
+        $this->pdo->commit();
     }
 
     public function revertirTransaccion() {
-        pg_query($this->conexion, "ROLLBACK");
+        $this->pdo->rollBack();
     }
 
     // =====================================================
@@ -63,15 +65,15 @@ class DFormulario {
      */
     private function verificarExistencia($fecha, $servicio) {
         $query = "SELECT COUNT(*) as total FROM censo 
-                  WHERE fecha = $1 AND servicio = $2";
+                  WHERE fecha = :fecha AND servicio = :servicio";
         
-        $result = pg_query_params($this->conexion, $query, [$fecha, $servicio]);
-        
-        if (!$result) {
-            throw new Exception("Error al verificar existencia: " . pg_last_error($this->conexion));
-        }
+        $stmt = $this->pdo->prepare($query);
+        $stmt->execute([
+            ':fecha' => $fecha,
+            ':servicio' => $servicio
+        ]);
 
-        $row = pg_fetch_assoc($result);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return (int)$row['total'] > 0;
     }
 
@@ -87,31 +89,33 @@ class DFormulario {
                     egreso, egreso_traslado, obito, aislamiento, 
                     bloqueada, total, libre, dotacion
                   ) VALUES (
-                    $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12
+                    :fecha, :servicio, :ingreso, :ingreso_traslado, 
+                    :egreso, :egreso_traslado, :obito, :aislamiento, 
+                    :bloqueada, :total, :libre, :dotacion
                   )";
 
-        $params = [
-            $data['fecha'],
-            $data['servicio'],
-            (int)$data['ingreso'],
-            (int)$data['ingreso_traslado'],
-            (int)$data['egreso'],
-            (int)$data['egreso_traslado'],
-            (int)$data['obito'],
-            (int)$data['aislamiento'],
-            (int)$data['bloqueada'],
-            (int)$data['total'],
-            (int)$data['libre'],
-            (int)$data['dotacion']
-        ];
-
-        $result = pg_query_params($this->conexion, $query, $params);
+        $stmt = $this->pdo->prepare($query);
+        
+        $result = $stmt->execute([
+            ':fecha' => $data['fecha'],
+            ':servicio' => $data['servicio'],
+            ':ingreso' => (int)$data['ingreso'],
+            ':ingreso_traslado' => (int)$data['ingreso_traslado'],
+            ':egreso' => (int)$data['egreso'],
+            ':egreso_traslado' => (int)$data['egreso_traslado'],
+            ':obito' => (int)$data['obito'],
+            ':aislamiento' => (int)$data['aislamiento'],
+            ':bloqueada' => (int)$data['bloqueada'],
+            ':total' => (int)$data['total'],
+            ':libre' => (int)$data['libre'],
+            ':dotacion' => (int)$data['dotacion']
+        ]);
 
         if (!$result) {
-            throw new Exception("Error al insertar censo: " . pg_last_error($this->conexion));
+            throw new Exception("Error al insertar censo");
         }
 
-        return pg_affected_rows($result);
+        return $stmt->rowCount();
     }
 
     /**
@@ -122,40 +126,40 @@ class DFormulario {
      */
     private function actualizarCenso($data) {
         $query = "UPDATE censo SET 
-                    ingreso = $3,
-                    ingreso_traslado = $4,
-                    egreso = $5,
-                    egreso_traslado = $6,
-                    obito = $7,
-                    aislamiento = $8,
-                    bloqueada = $9,
-                    total = $10,
-                    libre = $11,
-                    dotacion = $12
-                  WHERE fecha = $1 AND servicio = $2";
+                    ingreso = :ingreso,
+                    ingreso_traslado = :ingreso_traslado,
+                    egreso = :egreso,
+                    egreso_traslado = :egreso_traslado,
+                    obito = :obito,
+                    aislamiento = :aislamiento,
+                    bloqueada = :bloqueada,
+                    total = :total,
+                    libre = :libre,
+                    dotacion = :dotacion
+                  WHERE fecha = :fecha AND servicio = :servicio";
 
-        $params = [
-            $data['fecha'],
-            $data['servicio'],
-            (int)$data['ingreso'],
-            (int)$data['ingreso_traslado'],
-            (int)$data['egreso'],
-            (int)$data['egreso_traslado'],
-            (int)$data['obito'],
-            (int)$data['aislamiento'],
-            (int)$data['bloqueada'],
-            (int)$data['total'],
-            (int)$data['libre'],
-            (int)$data['dotacion']
-        ];
-
-        $result = pg_query_params($this->conexion, $query, $params);
+        $stmt = $this->pdo->prepare($query);
+        
+        $result = $stmt->execute([
+            ':fecha' => $data['fecha'],
+            ':servicio' => $data['servicio'],
+            ':ingreso' => (int)$data['ingreso'],
+            ':ingreso_traslado' => (int)$data['ingreso_traslado'],
+            ':egreso' => (int)$data['egreso'],
+            ':egreso_traslado' => (int)$data['egreso_traslado'],
+            ':obito' => (int)$data['obito'],
+            ':aislamiento' => (int)$data['aislamiento'],
+            ':bloqueada' => (int)$data['bloqueada'],
+            ':total' => (int)$data['total'],
+            ':libre' => (int)$data['libre'],
+            ':dotacion' => (int)$data['dotacion']
+        ]);
 
         if (!$result) {
-            throw new Exception("Error al actualizar censo: " . pg_last_error($this->conexion));
+            throw new Exception("Error al actualizar censo");
         }
 
-        return pg_affected_rows($result);
+        return $stmt->rowCount();
     }
 
     // =====================================================
@@ -176,30 +180,31 @@ class DFormulario {
 
         $totalInsertadas = 0;
 
+        // Query con INSERT ... ON CONFLICT (requiere PostgreSQL 9.5+)
+        $query = "INSERT INTO camas_prestadas (
+                    fecha, servicio, especialidad, cantidad, tipo_ingreso
+                  ) VALUES (
+                    :fecha, :servicio, :especialidad, :cantidad, :tipo_ingreso
+                  )
+                  ON CONFLICT (fecha, servicio, especialidad, tipo_ingreso) 
+                  DO UPDATE SET cantidad = EXCLUDED.cantidad";
+
+        $stmt = $this->pdo->prepare($query);
+
         foreach ($camasPrestadas as $cama) {
-            $query = "INSERT INTO camas_prestadas (
-                        fecha, servicio, especialidad, cantidad, tipo_ingreso
-                      ) VALUES (
-                        $1, $2, $3, $4, $5
-                      )
-                      ON CONFLICT (fecha, servicio, especialidad, tipo_ingreso) 
-                      DO UPDATE SET cantidad = EXCLUDED.cantidad";
-
-            $params = [
-                $cama['fecha'],
-                $cama['servicio'],
-                $cama['especialidad'],
-                (int)$cama['cantidad'],
-                $cama['tipo_ingreso']
-            ];
-
-            $result = pg_query_params($this->conexion, $query, $params);
+            $result = $stmt->execute([
+                ':fecha' => $cama['fecha'],
+                ':servicio' => $cama['servicio'],
+                ':especialidad' => $cama['especialidad'],
+                ':cantidad' => (int)$cama['cantidad'],
+                ':tipo_ingreso' => $cama['tipo_ingreso']
+            ]);
 
             if (!$result) {
-                throw new Exception("Error al guardar cama prestada: " . pg_last_error($this->conexion));
+                throw new Exception("Error al guardar cama prestada");
             }
 
-            $totalInsertadas += pg_affected_rows($result);
+            $totalInsertadas += $stmt->rowCount();
         }
 
         return $totalInsertadas;
@@ -215,15 +220,15 @@ class DFormulario {
      */
     public function eliminarCamasPrestadas($fecha, $servicio) {
         $query = "DELETE FROM camas_prestadas 
-                  WHERE fecha = $1 AND servicio = $2";
+                  WHERE fecha = :fecha AND servicio = :servicio";
 
-        $result = pg_query_params($this->conexion, $query, [$fecha, $servicio]);
+        $stmt = $this->pdo->prepare($query);
+        $stmt->execute([
+            ':fecha' => $fecha,
+            ':servicio' => $servicio
+        ]);
 
-        if (!$result) {
-            throw new Exception("Error al eliminar camas prestadas: " . pg_last_error($this->conexion));
-        }
-
-        return pg_affected_rows($result);
+        return $stmt->rowCount();
     }
 
     /**
@@ -236,21 +241,16 @@ class DFormulario {
     public function obtenerCamasPrestadas($fecha, $servicio) {
         $query = "SELECT id, fecha, servicio, especialidad, cantidad, tipo_ingreso 
                   FROM camas_prestadas 
-                  WHERE fecha = $1 AND servicio = $2
+                  WHERE fecha = :fecha AND servicio = :servicio
                   ORDER BY especialidad, tipo_ingreso";
 
-        $result = pg_query_params($this->conexion, $query, [$fecha, $servicio]);
+        $stmt = $this->pdo->prepare($query);
+        $stmt->execute([
+            ':fecha' => $fecha,
+            ':servicio' => $servicio
+        ]);
 
-        if (!$result) {
-            throw new Exception("Error al obtener camas prestadas: " . pg_last_error($this->conexion));
-        }
-
-        $camas = [];
-        while ($row = pg_fetch_assoc($result)) {
-            $camas[] = $row;
-        }
-
-        return $camas;
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 
     /**
@@ -263,15 +263,15 @@ class DFormulario {
     public function contarCamasPrestadas($fecha, $servicio) {
         $query = "SELECT COALESCE(SUM(cantidad), 0) as total 
                   FROM camas_prestadas 
-                  WHERE fecha = $1 AND servicio = $2";
+                  WHERE fecha = :fecha AND servicio = :servicio";
 
-        $result = pg_query_params($this->conexion, $query, [$fecha, $servicio]);
+        $stmt = $this->pdo->prepare($query);
+        $stmt->execute([
+            ':fecha' => $fecha,
+            ':servicio' => $servicio
+        ]);
 
-        if (!$result) {
-            throw new Exception("Error al contar camas prestadas: " . pg_last_error($this->conexion));
-        }
-
-        $row = pg_fetch_assoc($result);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
         return (int)$row['total'];
     }
 
@@ -288,20 +288,27 @@ class DFormulario {
      */
     public function obtenerCensoCompleto($fecha, $servicio) {
         // Obtener censo principal
-        $queryCenso = "SELECT * FROM censo WHERE fecha = $1 AND servicio = $2";
-        $resultCenso = pg_query_params($this->conexion, $queryCenso, [$fecha, $servicio]);
+        $queryCenso = "SELECT * FROM censo WHERE fecha = :fecha AND servicio = :servicio";
+        $stmt = $this->pdo->prepare($queryCenso);
+        $stmt->execute([
+            ':fecha' => $fecha,
+            ':servicio' => $servicio
+        ]);
 
-        if (!$resultCenso || pg_num_rows($resultCenso) === 0) {
+        $censo = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$censo) {
             return null;
         }
-
-        $censo = pg_fetch_assoc($resultCenso);
 
         // Obtener camas prestadas
         $censo['camas_prestadas'] = $this->obtenerCamasPrestadas($fecha, $servicio);
 
         return $censo;
     }
+
 }
+
+
 
 ?>
