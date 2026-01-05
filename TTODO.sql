@@ -12,8 +12,11 @@ CREATE TABLE IF NOT EXISTS servicios (
     nombre VARCHAR(100) NOT NULL UNIQUE,
     cant_camas INTEGER NOT NULL CHECK (cant_camas > 0),
     activo BOOLEAN DEFAULT TRUE,
+    id_especialidad INTEGER NOT NULL, 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    CONSTRAINT FK_servicios_especialidad 
+    FOREIGN KEY (id_especialidad) REFERENCES ON especialidades(id)
 );
 
 COMMENT ON TABLE servicios IS 'Catálogo de servicios hospitalarios';
@@ -25,11 +28,17 @@ COMMENT ON COLUMN servicios.activo IS 'Indica si el servicio está activo';
 -- Datos de ejemplo (ajustar según tus servicios reales)
 INSERT INTO servicios (nombre, cant_camas) VALUES
 ('Medicina Interna', 30),
-('Cirugía', 25),
-('Pediatría', 20),
-('Ginecología', 15),
-('Traumatología', 18),
-('UCI', 12)
+('Medicina Cirugía', 25),
+('Pabellon Quirurgico', 25),
+('Infectología', 25),
+('Pediatría', 30),
+('Onco Pediatría', 20),
+('Neonatologia', 15),
+('Ginecología', 32),
+('Neuro Trauma', 18),
+('UCIM', 6),
+('UTI Adultos', 14),
+('UTI Pediatria', 10),
 ON CONFLICT (nombre) DO NOTHING;
 
 -- =====================================================
@@ -50,16 +59,14 @@ COMMENT ON COLUMN especialidades.nombre IS 'Nombre de la especialidad';
 
 -- Datos de ejemplo (ajustar según tus especialidades reales)
 INSERT INTO especialidades (nombre) VALUES
-('Medicina Interna'),
-('Cirugía General'),
+('Medicina'),
+('Cirugía'),
 ('Pediatría'),
+('Oncología Pediatrica'),
 ('Ginecología y Obstetricia'),
-('Traumatología'),
-('Cardiología'),
-('Neurología'),
-('Oncología'),
-('Nefrología'),
-('Neumología')
+('Terapia Intermedia'),
+('UTI Pediatrica'),
+('UTI Adultos'),
 ON CONFLICT (nombre) DO NOTHING;
 
 -- =====================================================
