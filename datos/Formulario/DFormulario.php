@@ -51,6 +51,17 @@ class DFormulario {
         return (int)$row['total'] > 0;
     }
 
+    public function getTotalAyer($fecha, $servicio){
+        $query = "SELECT total FROM censo  
+                  WHERE fecha = (select MAX(fecha) from censo) AND servicio = :servicio";
+        $stmt = $this->pdo->prepare($query);
+        $stmt->execute([
+            ':servicio' => $servicio
+        ]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return (int)$row['total'];
+    }
+
     /**
      * Verificar que una especialidad existe en la tabla especialidades
      * 

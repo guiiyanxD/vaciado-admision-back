@@ -25,7 +25,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
 
 if ($_SERVER['REQUEST_METHOD'] == 'GET' && $_SERVER['REQUEST_URI'] === '/') {
     http_response_code(200);
-    echo json_encode(['message' => 'chau']);
+    echo json_encode(['message' => 'entrypoint funcionando']);
     exit;
 }
 
@@ -100,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/totalA
         http_response_code(200);
         echo json_encode([
             'status' => 'success',
-            'data' => $total
+            'data' => $data
         ]);
         exit;
     } else {

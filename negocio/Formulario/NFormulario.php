@@ -202,12 +202,19 @@ class NFormulario {
         ]);
     }
 
-    public function test(){
-        $rpta = array(
-            'mensaje' => "llegue a la funcio test de NFORMULARIO"
-        );
-        json_encode($rpta);
-        exit();
+    public function getTotalAyer($data){
+        try {
+            if (!isset($data['fecha']) || !isset($data['servicio'])) {
+                return $this->respuestaError(400, 'Parámetros faltantes: fecha y servicio son requeridos');
+            }
+
+            $total = $this->DFormulario->getTotalAyer($data['fecha'], $data['servicio']);
+
+            return $this->respuestaExito(200, 'Total obtenido', $total);
+
+        } catch (Exception $e) {
+            return $this->respuestaError(500, 'Error al obtener total: ' . $e->getMessage());
+        }
     }
 }
 ?>
