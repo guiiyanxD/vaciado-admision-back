@@ -97,11 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/totalA
         $formulario = new NFormulario();
         $total = $formulario->getTotalAyer($data);
         
-        http_response_code(200);
-        echo json_encode([
-            'status' => 'success',
-            'data' => $data
-        ]);
+        return $total;
         exit;
     } else {
         http_response_code(400);
