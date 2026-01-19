@@ -147,13 +147,13 @@ class NFormulario {
      * @param string $servicio
      * @return array Respuesta con status y data
      */
-    public function obtenerCenso($fecha, $servicio) {
+    public function obtenerCenso($data) {
         try {
-            if (empty($fecha) || empty($servicio)) {
+            if (empty($data['fecha']) || empty($data['servicio'])) {
                 return $this->respuestaError(400, 'Parámetros faltantes: fecha y servicio son requeridos');
             }
 
-            $censoCompleto = $this->DFormulario->obtenerCensoCompleto($fecha, $servicio);
+            $censoCompleto = $this->DFormulario->obtenerCensoCompleto($data['fechaInicio'], $data['servicio']);
 
             if ($censoCompleto) {
                 return $this->respuestaExito(200, 'Censo encontrado', $censoCompleto);
