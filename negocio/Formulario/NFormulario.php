@@ -149,8 +149,8 @@ class NFormulario {
      */
     public function obtenerCenso($data) {
         try {
-            if (empty($data['fecha']) || empty($data['servicio'])) {
-                return $this->respuestaError(400, 'Parámetros faltantes: fecha y servicio son requeridos');
+            if (empty($data['fechaInicio']) || empty($data['servicio'])) {
+                return $this->respuestaError(400, 'Parámetros faltantes: fecha de inicio y servicio son requeridos');
             }
 
             $censoCompleto = $this->DFormulario->obtenerCensoCompleto($data['fechaInicio'], $data['servicio']);
