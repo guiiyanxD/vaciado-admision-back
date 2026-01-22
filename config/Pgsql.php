@@ -7,7 +7,7 @@ class PgsqlConnection {
 
     private function __construct() {
         $host = '127.0.0.1';
-        $dbname = 'movimiento_hospitalario';
+        $dbname = 'movimiento_hospitalario_2';
         $user = 'postgres';
         $password = '1234';
 

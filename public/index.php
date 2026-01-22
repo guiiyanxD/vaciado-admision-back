@@ -121,6 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/buscar
     $data = json_decode($json, true);
 
     $formulario = new NFormulario();
+    //print_r($data);
     $result = $formulario->obtenerCenso($data);
     
     return $result;

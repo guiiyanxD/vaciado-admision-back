@@ -342,12 +342,11 @@ class DFormulario {
      * @param string $servicio
      * @return array|null Datos completos o null si no existe
      */
-    public function obtenerCensoCompleto($fecha, $servicio) {
-        // Obtener censo principal
-        $queryCenso = "SELECT * FROM censo WHERE fecha = :fecha AND servicio = :servicio";
+    public function obtenerCensoCompleto($fechaInicio, $servicio) {
+        $queryCenso = "SELECT fecha, servicio, ingreso, ingreso_traslado, egreso, egreso_traslado, obito, aislamiento, bloqueada, total FROM censo WHERE fecha = :fechaInicio AND servicio = :servicio";
         $stmt = $this->pdo->prepare($queryCenso);
         $stmt->execute([
-            ':fecha' => $fecha,
+            ':fechaInicio' => $fechaInicio,
             ':servicio' => $servicio
         ]);
 
@@ -358,75 +357,31 @@ class DFormulario {
         }
 
         // Obtener camas prestadas
-        $censo['camas_prestadas'] = $this->obtenerCamasPrestadas($fecha, $servicio);
+        $censo['camas_prestadas'] = $this->obtenerCamasPrestadas($fechaInicio, $servicio);
 
         return $censo;
     }
-
-    // =====================================================
-    // MÉTODOS AUXILIARES
-    // =====================================================
-
-    /**
-     * Obtener todos los servicios
-     * 
-     * @return array
-     */
-    public function obtenerServicios() {
-        $query = "SELECT id, nombre, cant_camas FROM servicios WHERE activo = TRUE ORDER BY nombre";
-        $stmt = $this->pdo->query($query);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    /**
-     * Obtener todas las especialidades
-     * 
-     * @return array
-     */
-    public function obtenerEspecialidades() {
-        $query = "SELECT id, nombre FROM especialidades WHERE activo = TRUE ORDER BY nombre";
-        $stmt = $this->pdo->query($query);
-        return $stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
-
-    /**
-     * Crear un nuevo servicio (NUEVO método auxiliar)
-     * 
-     * @param string $nombre
-     * @param int $cantCamas
-     * @return int ID del servicio creado
-     */
-    public function crearServicio($nombre, $cantCamas) {
-        $query = "INSERT INTO servicios (nombre, cant_camas) 
-                  VALUES (:nombre, :cant_camas) 
-                  RETURNING id";
-        
-        $stmt = $this->pdo->prepare($query);
+    
+    public function obtenerCensoCompletoRangoFechas($fechaInicio, $fechaFin, $servicio) {
+        $queryCenso = "SELECT fecha, servicio, ingreso, ingreso_traslado, egreso, egreso_traslado, obito, aislamiento, 
+        bloqueada, total FROM censo WHERE fecha >= :fechaInicio AND fecha <= :fechaFin AND servicio = :servicio";
+        $stmt = $this->pdo->prepare($queryCenso);
         $stmt->execute([
-            ':nombre' => $nombre,
-            ':cant_camas' => (int)$cantCamas
+            ':fechaInicio' => $fechaInicio,
+            ':fechaFin' => $fechaFin,
+            ':servicio' => $servicio
         ]);
-        
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        return (int)$row['id'];
-    }
 
-    /**
-     * Crear una nueva especialidad (NUEVO método auxiliar)
-     * 
-     * @param string $nombre
-     * @return int ID de la especialidad creada
-     */
-    public function crearEspecialidad($nombre) {
-        $query = "INSERT INTO especialidades (nombre) 
-                  VALUES (:nombre) 
-                  RETURNING id";
-        
-        $stmt = $this->pdo->prepare($query);
-        $stmt->execute([':nombre' => $nombre]);
-        
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        return (int)$row['id'];
+        $censo = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$censo) {
+            return null;
+        }
+
+        // Obtener camas prestadas
+        //$censo['camas_prestadas'] = $this->obtenerCamasPrestadas($fechaInicio, $servicio);
+
+        return $censo;
     }
 }
 
