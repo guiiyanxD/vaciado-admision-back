@@ -152,17 +152,17 @@ class NFormulario {
             if (empty($data['fechaInicio']) || empty($data['servicioBuscar'])) {
                 return $this->respuestaError(400, 'Parámetros faltantes: fecha de inicio y servicio son requeridos');
             }
-            if( $data['fechaFin'] ){ //un rango de fechas
+            if( $data['fechaFin'] && !$data['agruparMes'] ){ //un rango de fechas
                 $censoCompleto = $this->DFormulario->obtenerCensoCompletoRangoFechas($data['fechaInicio'], $data['fechaFin'], $data['servicioBuscar']);
-            }else if($data['agruparMes']) { //con el fin de agrupar por mes
-                $censoCompleto = $this->DFormulario->obtenerCensoCompleto($data['fechaInicio'], $data['servicio']);
+            }else if($data['fechaFin'] && $data['agruparMes']) { //con el fin de agrupar por mes
+                $censoCompleto = $this->DFormulario->obtenerCensoCompletoAgruparMes($data['fechaInicio'], $data['fechaFin'], $data['servicioBuscar']);
             }else{
                 $censoCompleto = $this->DFormulario->obtenerCensoCompleto($data['fechaInicio'], $data['servicioBuscar']);
             }
 
             if ($censoCompleto) {
                 $array = [$censoCompleto];
-                return $this->respuestaExito(200, 'Censo encontrado', $array);
+                return $this->respuestaExito(200, 'Censo encontrado', $censoCompleto);
             } else {
                 return $this->respuestaError(404, 'Censo no encontrado');
             }

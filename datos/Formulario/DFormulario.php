@@ -356,10 +356,10 @@ class DFormulario {
             return null;
         }
 
-        // Obtener camas prestadas
         $censo['camas_prestadas'] = $this->obtenerCamasPrestadas($fechaInicio, $servicio);
+        $array = [$censo];
 
-        return $censo;
+        return $array;
     }
     
     public function obtenerCensoCompletoRangoFechas($fechaInicio, $fechaFin, $servicio) {
@@ -372,7 +372,29 @@ class DFormulario {
             ':servicio' => $servicio
         ]);
 
-        $censo = $stmt->fetch(PDO::FETCH_ASSOC);
+        $censo = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        if (!$censo) {
+            return null;
+        }
+
+        // Obtener camas prestadas
+        //$censo['camas_prestadas'] = $this->obtenerCamasPrestadas($fechaInicio, $servicio);
+
+        return $censo;
+    }
+
+    public function obtenerCensoCompletoAgruparMes($fechaInicio, $fechaFin, $servicio) {
+        $queryCenso = "SELECT extract(month from fecha) as mes, extract(year from fecha) as anho, fecha, servicio, ingreso, ingreso_traslado, egreso, egreso_traslado, obito, aislamiento, 
+        bloqueada, total FROM censo WHERE fecha >= :fechaInicio AND fecha <= :fechaFin AND servicio = :servicio group by  anho, mes, fecha, servicio, ingreso, ingreso_traslado, egreso, egreso_traslado, obito, aislamiento, bloqueada, total order by anho, mes";
+        $stmt = $this->pdo->prepare($queryCenso);
+        $stmt->execute([
+            ':fechaInicio' => $fechaInicio,
+            ':fechaFin' => $fechaFin,
+            ':servicio' => $servicio
+        ]);
+
+        $censo = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         if (!$censo) {
             return null;
