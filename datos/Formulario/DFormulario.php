@@ -343,35 +343,53 @@ class DFormulario {
      * @return array|null Datos completos o null si no existe
      */
     public function obtenerCensoCompleto($fechaInicio, $servicio) {
-        $queryCenso = "SELECT fecha, servicio, ingreso, ingreso_traslado, egreso, egreso_traslado, obito, aislamiento, bloqueada, total FROM censo WHERE fecha = :fechaInicio AND servicio = :servicio";
+        if($servicio == 'todos'){
+            $queryCenso = "SELECT fecha, servicio, ingreso, ingreso_traslado, egreso, egreso_traslado, obito, 
+            aislamiento, bloqueada, total FROM censo WHERE fecha = :fechaInicio";
+            $params = [':fechaInicio' => $fechaInicio];    
+        }else{
+            $queryCenso = "SELECT fecha, servicio, ingreso, ingreso_traslado, egreso, egreso_traslado, obito, 
+            aislamiento, bloqueada, total FROM censo WHERE fecha = :fechaInicio AND servicio = :servicio";
+            $params = [
+                ':fechaInicio' => $fechaInicio,
+                ':servicio' => $servicio
+            ];
+        }
+        
         $stmt = $this->pdo->prepare($queryCenso);
-        $stmt->execute([
-            ':fechaInicio' => $fechaInicio,
-            ':servicio' => $servicio
-        ]);
-
-        $censo = $stmt->fetch(PDO::FETCH_ASSOC);
+        $stmt->execute($params);
+        $censo = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         if (!$censo) {
             return null;
         }
 
-        $censo['camas_prestadas'] = $this->obtenerCamasPrestadas($fechaInicio, $servicio);
+        //$censo['camas_prestadas'] = $this->obtenerCamasPrestadas($fechaInicio, $servicio);
         $array = [$censo];
 
-        return $array;
+        return $censo;
     }
     
     public function obtenerCensoCompletoRangoFechas($fechaInicio, $fechaFin, $servicio) {
-        $queryCenso = "SELECT fecha, servicio, ingreso, ingreso_traslado, egreso, egreso_traslado, obito, aislamiento, 
-        bloqueada, total FROM censo WHERE fecha >= :fechaInicio AND fecha <= :fechaFin AND servicio = :servicio";
+        if($servicio == 'todos'){
+            $queryCenso = "SELECT fecha, servicio, ingreso, ingreso_traslado, egreso, egreso_traslado, obito, aislamiento, 
+                bloqueada, total FROM censo WHERE fecha >= :fechaInicio AND fecha <= :fechaFin";
+            $params = [
+                ':fechaInicio' => $fechaInicio,
+                ':fechaFin' => $fechaFin
+            ];       
+        }else {
+            $queryCenso = "SELECT fecha, servicio, ingreso, ingreso_traslado, egreso, egreso_traslado, obito, aislamiento, 
+                bloqueada, total FROM censo WHERE fecha >= :fechaInicio AND fecha <= :fechaFin AND servicio = :servicio";
+            $params = [
+                ':fechaInicio' => $fechaInicio,
+                ':fechaFin' => $fechaFin,
+                ':servicio' => $servicio
+            ];       
+        }
+        
         $stmt = $this->pdo->prepare($queryCenso);
-        $stmt->execute([
-            ':fechaInicio' => $fechaInicio,
-            ':fechaFin' => $fechaFin,
-            ':servicio' => $servicio
-        ]);
-
+        $stmt->execute($params);
         $censo = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         if (!$censo) {
