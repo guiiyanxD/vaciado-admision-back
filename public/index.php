@@ -140,3 +140,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'GET' && $_SERVER['REQUEST_URI'] === '/comprob
     exit;
 }
 
+if($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/reporte-mensual'){
+    $json = file_get_contents('php://input');
+    $data = json_decode($json, true);
+
+    if (!isset($data['fechaInicio']) || !isset($data['fechaFin'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Missing required parameters: fechaInicio and fechaFin']);
+        exit;
+    }
+
+    $formulario = new NFormulario();
+    $reporte = $formulario->reporteMensual($data);
+    
+    return $reporte;
+    exit;
+}
+

@@ -222,5 +222,20 @@ class NFormulario {
             return $this->respuestaError(500, 'Error al obtener total: ' . $e->getMessage());
         }
     }
+
+    public function reporteMensual($data){
+        try {
+            if (!isset($data['fechaInicio']) || !isset($data['fechaFin'])) {
+                return $this->respuestaError(400, 'Parámetros faltantes: fechaInicio y fechaFin son requeridos');
+            }
+
+            $reporte = $this->DFormulario->reporteMensual($data['fechaInicio'], $data['fechaFin']);
+
+            return $this->respuestaExito(200, 'Reporte mensual obtenido', $reporte);
+
+        } catch (Exception $e) {
+            return $this->respuestaError(500, 'Error al obtener reporte mensual: ' . $e->getMessage());
+        }
+    }
 }
 ?>

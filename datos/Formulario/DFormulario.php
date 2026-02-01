@@ -423,7 +423,47 @@ class DFormulario {
 
         return $censo;
     }
+
+    public function reporteMensual($fechaInicio, $fechaFin){
+        $movimientos = ['ingreso', 'ingreso_traslado', 'egreso', 'egreso_traslado', 'obito', 'aislamiento', 'bloqueada', 'total'];
+
+        for($i=0; $i < count($movimientos); $i++){
+            $queryCenso = "SELECT 
+                TO_CHAR(fecha, 'YYYY-MM-DD') AS PERIODO,
+                SUM(CASE WHEN servicio = 'Medicina Interna' THEN " . $movimientos[$i] . " ELSE 0 END) AS Medicina_Interna,
+                SUM(CASE WHEN servicio = 'Medicina Cirugia' THEN " . $movimientos[$i] . " ELSE 0 END) AS Medicina_Cirugia,
+                SUM(CASE WHEN servicio = 'Infectologia' THEN " . $movimientos[$i] . " ELSE 0 END) AS Infectologia,
+                SUM(CASE WHEN servicio = 'Pabellon Quirurgico' THEN " . $movimientos[$i] . " ELSE 0 END) AS Pabellon,
+                SUM(CASE WHEN servicio = 'Neuro Trauma' THEN " . $movimientos[$i] . " ELSE 0 END) AS Neuro_Trauma,
+                SUM(CASE WHEN servicio = 'Ginecologia' THEN " . $movimientos[$i] . " ELSE 0 END) AS Ginecologia,
+                SUM(CASE WHEN servicio = 'Neonatologia' THEN " . $movimientos[$i] . " ELSE 0 END) AS Neonatologia,
+                SUM(CASE WHEN servicio = 'Pediatria' THEN " . $movimientos[$i] . " ELSE 0 END) AS Pediatria,
+                SUM(CASE WHEN servicio = 'Onco Pediatria' THEN " . $movimientos[$i] . " ELSE 0 END) AS Onco_Pediatria,
+                SUM(CASE WHEN servicio = 'UCIM' THEN " . $movimientos[$i] . " ELSE 0 END) AS UCIM,
+                SUM(CASE WHEN servicio = 'UTI PEDIATRIA' THEN " . $movimientos[$i] . " ELSE 0 END) AS Uti_Pediatria,
+                SUM(CASE WHEN servicio = 'UTI ADULTOS' THEN " . $movimientos[$i] . " ELSE 0 END) AS Uti_Adultos,
+                SUM(" . $movimientos[$i] . ") AS Total 
+            FROM censo WHERE fecha >= :fechaInicio AND fecha <= :fechaFin
+            GROUP BY PERIODO
+            ORDER BY PERIODO asc;";
+
+            $stmt = $this->pdo->prepare($queryCenso);
+            $stmt->execute([
+                ':fechaInicio' => $fechaInicio,
+                ':fechaFin' => $fechaFin
+            ]);
+
+            $censo[ $movimientos[$i] ] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        }
+        
+        if (!$censo) {
+            return null;
+        }
+
+        return $censo;
+    }
 }
+
 
 
 
