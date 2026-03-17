@@ -440,8 +440,8 @@ class DFormulario {
                 SUM(CASE WHEN servicio = 'Pediatria' THEN " . $movimientos[$i] . " ELSE 0 END) AS Pediatria,
                 SUM(CASE WHEN servicio = 'Onco Pediatria' THEN " . $movimientos[$i] . " ELSE 0 END) AS Onco_Pediatria,
                 SUM(CASE WHEN servicio = 'UCIM' THEN " . $movimientos[$i] . " ELSE 0 END) AS UCIM,
-                SUM(CASE WHEN servicio = 'UTI PEDIATRIA' THEN " . $movimientos[$i] . " ELSE 0 END) AS Uti_Pediatria,
-                SUM(CASE WHEN servicio = 'UTI ADULTOS' THEN " . $movimientos[$i] . " ELSE 0 END) AS Uti_Adultos,
+                SUM(CASE WHEN servicio = 'UTI Pediatria' THEN " . $movimientos[$i] . " ELSE 0 END) AS Uti_Pediatria,
+                SUM(CASE WHEN servicio = 'UTI Adultos' THEN " . $movimientos[$i] . " ELSE 0 END) AS Uti_Adultos,
                 SUM(" . $movimientos[$i] . ") AS Total 
             FROM censo WHERE fecha >= :fechaInicio AND fecha <= :fechaFin
             GROUP BY PERIODO

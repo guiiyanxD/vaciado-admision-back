@@ -2,6 +2,7 @@
 require_once("../negocio/Formulario/NFormulario.php");
 require_once("../negocio/Servicios/NServicios.php");
 require_once("../negocio/Especialidades/NEspecialidades.php");
+ require_once("../negocio/Compensaciones/NCompensaciones.php");
 
 // ========================================
 // CONFIGURACIÓN CORS
@@ -157,3 +158,176 @@ if($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/reporte
     exit;
 }
 
+
+// ============================================================
+// RUTAS DEL MÓDULO DE COMPENSACIONES
+// Agregar en public/index.php junto a los require_once del inicio
+// ============================================================
+ 
+// require_once("../negocio/Compensaciones/NCompensaciones.php");
+ 
+ 
+// ============================================================
+// PERSONAL — ABM
+// ============================================================
+ 
+// GET /compensaciones/personal  → listar todo el personal
+if ($_SERVER['REQUEST_METHOD'] == 'GET' && $_SERVER['REQUEST_URI'] === '/compensaciones/personal') {
+    $comp = new NCompensaciones();
+    $comp->getAllPersonal();
+    exit;
+}
+ 
+// GET /compensaciones/personal/activo  → solo personal activo (para selects)
+if ($_SERVER['REQUEST_METHOD'] == 'GET' && $_SERVER['REQUEST_URI'] === '/compensaciones/personal/activo') {
+    $comp = new NCompensaciones();
+    $comp->getPersonalActivo();
+    exit;
+}
+ 
+// POST /compensaciones/personal  → crear funcionario
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/compensaciones/personal') {
+    $json = file_get_contents('php://input');
+    $data = json_decode($json, true);
+ 
+    if (!isset($data['nombres']) || !isset($data['apellidos'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Missing required parameters: nombres and apellidos']);
+        exit;
+    }
+ 
+    $comp = new NCompensaciones();
+    $comp->crearPersonal($data);
+    exit;
+}
+ 
+// PUT /compensaciones/personal  → actualizar funcionario
+if ($_SERVER['REQUEST_METHOD'] == 'PUT' && $_SERVER['REQUEST_URI'] === '/compensaciones/personal') {
+    $json = file_get_contents('php://input');
+    $data = json_decode($json, true);
+ 
+    if (!isset($data['id'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Missing required parameter: id']);
+        exit;
+    }
+ 
+    $comp = new NCompensaciones();
+    $comp->actualizarPersonal($data);
+    exit;
+}
+ 
+// DELETE /compensaciones/personal  → eliminar funcionario
+if ($_SERVER['REQUEST_METHOD'] == 'DELETE' && $_SERVER['REQUEST_URI'] === '/compensaciones/personal') {
+    $json = file_get_contents('php://input');
+    $data = json_decode($json, true);
+ 
+    if (!isset($data['id'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Missing required parameter: id']);
+        exit;
+    }
+ 
+    $comp = new NCompensaciones();
+    $comp->eliminarPersonal($data);
+    exit;
+}
+ 
+// ============================================================
+// COMPENSACIONES — CRUD
+// ============================================================
+ 
+// POST /compensaciones/registro  → crear o actualizar un registro (upsert)
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/compensaciones/registro') {
+    $json = file_get_contents('php://input');
+    $data = json_decode($json, true);
+ 
+    if (!isset($data['personal_id']) || !isset($data['anho']) || !isset($data['mes'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Missing required parameters: personal_id, anho and mes']);
+        exit;
+    }
+ 
+    $comp = new NCompensaciones();
+    $comp->guardarCompensacion($data);
+    exit;
+}
+ 
+// POST /compensaciones/registro/buscar  → obtener un registro puntual
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/compensaciones/registro/buscar') {
+    $json = file_get_contents('php://input');
+    $data = json_decode($json, true);
+ 
+    if (!isset($data['personal_id']) || !isset($data['anho']) || !isset($data['mes'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Missing required parameters: personal_id, anho and mes']);
+        exit;
+    }
+ 
+    $comp = new NCompensaciones();
+    $comp->getRegistro($data);
+    exit;
+}
+ 
+// DELETE /compensaciones/registro  → eliminar un registro puntual
+if ($_SERVER['REQUEST_METHOD'] == 'DELETE' && $_SERVER['REQUEST_URI'] === '/compensaciones/registro') {
+    $json = file_get_contents('php://input');
+    $data = json_decode($json, true);
+ 
+    if (!isset($data['personal_id']) || !isset($data['anho']) || !isset($data['mes'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Missing required parameters: personal_id, anho and mes']);
+        exit;
+    }
+ 
+    $comp = new NCompensaciones();
+    $comp->eliminarCompensacion($data);
+    exit;
+}
+ 
+// ============================================================
+// CONSULTAS
+// ============================================================
+ 
+// POST /compensaciones/persona-anho  → todos los registros de una persona en un año
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/compensaciones/persona-anho') {
+    $json = file_get_contents('php://input');
+    $data = json_decode($json, true);
+ 
+    if (!isset($data['personal_id']) || !isset($data['anho'])) {
+        http_response_code(400);
+        echo json_encode(['error' => 'Missing required parameters: personal_id and anho']);
+        exit;
+    }
+ 
+    $comp = new NCompensaciones();
+    $comp->getRegistrosPorPersonaAnho($data);
+    exit;
+}
+ 
+// POST /compensaciones/resumen-anual  → resumen tipo RECUENTO para un año
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/compensaciones/resumen-anual') {
+    $json = file_get_contents('php://input');
+    $data = json_decode($json, true);
+ 
+    $comp = new NCompensaciones();
+    $comp->getResumenAnual($data);
+    exit;
+}
+ 
+// POST /compensaciones/resumen-multi-anho  → resumen RECUENTO para varios años
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && $_SERVER['REQUEST_URI'] === '/compensaciones/resumen-multi-anho') {
+    $json = file_get_contents('php://input');
+    $data = json_decode($json, true);
+ 
+    $comp = new NCompensaciones();
+    $comp->getResumenMultiAnho($data);
+    exit;
+}
+ 
+// GET /compensaciones/anhos  → años disponibles en la BD
+if ($_SERVER['REQUEST_METHOD'] == 'GET' && $_SERVER['REQUEST_URI'] === '/compensaciones/anhos') {
+    $comp = new NCompensaciones();
+    $comp->getAnhosDisponibles();
+    exit;
+}
