@@ -1,0 +1,1 @@
+select * from camas_prestadas where fecha between '2026-05-01' and '2026-06-01' order by fecha asc;
