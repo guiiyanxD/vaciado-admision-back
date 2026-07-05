@@ -1,6 +1,14 @@
-<?php 
-require_once("../datos/Formulario/DFormulario.php");
+<?php
+
+namespace Admision\Negocio\Formulario;
+
+use Admision\Datos\Formulario\DFormulario;
+use Admision\Negocio\RespuestaJson;
+use DateTime;
+use Exception;
+
 class NFormulario {
+    use RespuestaJson;
 
     private $DFormulario;
 
@@ -27,6 +35,11 @@ class NFormulario {
             // Validar campos requeridos del censo
             if (empty($censo['fecha']) || empty($censo['servicio'])) {
                 return $this->respuestaError(400, 'Datos incompletos: fecha y servicio son requeridos');
+            }
+
+            // Regla de negocio: cierre de mes — no se puede cargar/editar un mes ya cerrado
+            if (!$this->fechaEsEditable($censo['fecha'])) {
+                return $this->respuestaError(409, $this->mensajeMesCerrado($censo['fecha']));
             }
 
             // Iniciar transacción para garantizar atomicidad
@@ -141,8 +154,52 @@ class NFormulario {
     }
 
     /**
+     * Determina si una fecha pertenece a un mes editable, según la regla de "cierre de mes":
+     * - El mes en curso siempre es editable.
+     * - El mes anterior solo es editable durante el período de gracia (día 1 al 5 del mes en curso).
+     * - Cualquier otro mes (más antiguo, o futuro) está bloqueado.
+     *
+     * @param string $fecha
+     * @return bool
+     */
+    private function fechaEsEditable($fecha) {
+        $fecha = new DateTime($fecha);
+        $hoy = new DateTime();
+
+        $mesesEditables = [$hoy->format('Y-m')];
+
+        if ((int)$hoy->format('d') <= 5) {
+            $mesAnterior = (clone $hoy)->modify('first day of last month');
+            $mesesEditables[] = $mesAnterior->format('Y-m');
+        }
+
+        return in_array($fecha->format('Y-m'), $mesesEditables, true);
+    }
+
+    /**
+     * Mensaje de error legible para cuando se intenta guardar en un mes cerrado.
+     *
+     * @param string $fecha
+     * @return string
+     */
+    private function mensajeMesCerrado($fecha) {
+        $meses = [
+            1 => 'enero', 2 => 'febrero', 3 => 'marzo', 4 => 'abril', 5 => 'mayo', 6 => 'junio',
+            7 => 'julio', 8 => 'agosto', 9 => 'septiembre', 10 => 'octubre', 11 => 'noviembre', 12 => 'diciembre'
+        ];
+        $fecha = new DateTime($fecha);
+        $nombreMes = $meses[(int)$fecha->format('n')];
+
+        return sprintf(
+            'No se puede guardar: el mes de %s de %s ya está cerrado. Solo se puede cargar el mes en curso (y el anterior hasta el día 5).',
+            $nombreMes,
+            $fecha->format('Y')
+        );
+    }
+
+    /**
      * Obtener censo completo con camas prestadas
-     * 
+     *
      * @param string $fecha
      * @param string $servicio
      * @return array Respuesta con status y data
@@ -152,10 +209,8 @@ class NFormulario {
             if (empty($data['fechaInicio']) || empty($data['servicioBuscar'])) {
                 return $this->respuestaError(400, 'Parámetros faltantes: fecha de inicio y servicio son requeridos');
             }
-            if( $data['fechaFin'] && !$data['agruparMes'] ){ //un rango de fechas
+            if( !empty($data['fechaFin']) ){ //un rango de fechas
                 $censoCompleto = $this->DFormulario->obtenerCensoCompletoRangoFechas($data['fechaInicio'], $data['fechaFin'], $data['servicioBuscar']);
-            }else if($data['fechaFin'] && $data['agruparMes']) { //con el fin de agrupar por mes
-                $censoCompleto = $this->DFormulario->obtenerCensoCompletoAgruparMes($data['fechaInicio'], $data['fechaFin'], $data['servicioBuscar']);
             }else{
                 $censoCompleto = $this->DFormulario->obtenerCensoCompleto($data['fechaInicio'], $data['servicioBuscar']);
             }
@@ -170,42 +225,6 @@ class NFormulario {
         } catch (Exception $e) {
             return $this->respuestaError(500, 'Error al obtener censo: ' . $e->getMessage());
         }
-    }
-
-    // =====================================================
-    // MÉTODOS AUXILIARES PARA RESPUESTAS
-    // =====================================================
-
-    /**
-     * Crear respuesta de éxito
-     * 
-     * @param int $codigo Código HTTP
-     * @param string $mensaje Mensaje descriptivo
-     * @param mixed $data Datos a retornar
-     * @return array
-     */
-    private function respuestaExito($codigo, $mensaje, $data = null) {
-        http_response_code($codigo);
-        echo json_encode([
-            'status' => 'success',
-            'message' => $mensaje,
-            'data' => $data
-        ]);
-    }
-
-    /**
-     * Crear respuesta de error
-     * 
-     * @param int $codigo Código HTTP
-     * @param string $mensaje Mensaje de error
-     * @return array
-     */
-    private function respuestaError($codigo, $mensaje) {
-        http_response_code($codigo);
-        echo json_encode( [
-            'status' => 'failed',
-            'message' => $mensaje
-        ]);
     }
 
     public function getTotalAyer($data){
@@ -229,12 +248,54 @@ class NFormulario {
                 return $this->respuestaError(400, 'Parámetros faltantes: fechaInicio y fechaFin son requeridos');
             }
 
-            $reporte = $this->DFormulario->reporteMensual($data['fechaInicio'], $data['fechaFin']);
+            $detalle = isset($data['detalle']) ? (bool)$data['detalle'] : true;
+
+            $reporte = $this->DFormulario->reporteMensual($data['fechaInicio'], $data['fechaFin'], $detalle);
 
             return $this->respuestaExito(200, 'Reporte mensual obtenido', $reporte);
 
         } catch (Exception $e) {
             return $this->respuestaError(500, 'Error al obtener reporte mensual: ' . $e->getMessage());
+        }
+    }
+
+    public function reporteCamasPrestadas($data){
+        try {
+            if (empty($data['fechaInicio']) || empty($data['fechaFin'])) {
+                return $this->respuestaError(400, 'Parámetros faltantes: fechaInicio y fechaFin son requeridos');
+            }
+
+            $servicio = !empty($data['servicio']) ? $data['servicio'] : 'todos';
+            $especialidad = !empty($data['especialidad']) ? $data['especialidad'] : 'todas';
+            $tipoIngreso = !empty($data['tipoIngreso']) ? $data['tipoIngreso'] : 'AMBOS';
+
+            $reporte = $this->DFormulario->reporteCamasPrestadas(
+                $data['fechaInicio'],
+                $data['fechaFin'],
+                $servicio,
+                $especialidad,
+                $tipoIngreso
+            );
+
+            return $this->respuestaExito(200, 'Reporte de camas prestadas obtenido', $reporte);
+
+        } catch (Exception $e) {
+            return $this->respuestaError(500, 'Error al obtener reporte de camas prestadas: ' . $e->getMessage());
+        }
+    }
+
+    public function reporteKpis($data){
+        try {
+            if (empty($data['fechaInicio']) || empty($data['fechaFin'])) {
+                return $this->respuestaError(400, 'Parámetros faltantes: fechaInicio y fechaFin son requeridos');
+            }
+
+            $reporte = $this->DFormulario->reporteKpis($data['fechaInicio'], $data['fechaFin']);
+
+            return $this->respuestaExito(200, 'KPIs obtenidos', $reporte);
+
+        } catch (Exception $e) {
+            return $this->respuestaError(500, 'Error al obtener KPIs: ' . $e->getMessage());
         }
     }
 }

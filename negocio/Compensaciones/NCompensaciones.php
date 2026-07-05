@@ -1,7 +1,13 @@
 <?php
-require_once("../datos/Compensaciones/DCompensaciones.php");
+
+namespace Admision\Negocio\Compensaciones;
+
+use Admision\Datos\Compensaciones\DCompensaciones;
+use Admision\Negocio\RespuestaJson;
+use Exception;
 
 class NCompensaciones {
+    use RespuestaJson;
 
     private $DCompensaciones;
 
@@ -215,24 +221,81 @@ class NCompensaciones {
     }
 
     // =====================================================
-    // RESPUESTAS
+    // DESCUENTOS DE HORAS PENDIENTES
     // =====================================================
 
-    private function respuestaExito($codigo, $mensaje, $data = null) {
-        http_response_code($codigo);
-        echo json_encode([
-            'status'  => 'success',
-            'message' => $mensaje,
-            'data'    => $data
-        ]);
+    public function getSaldoPendientePorGestion($data) {
+        try {
+            if (empty($data['personal_id'])) {
+                return $this->respuestaError(400, 'El funcionario es requerido');
+            }
+
+            $saldos = $this->DCompensaciones->getSaldoPendientePorGestion($data['personal_id']);
+            return $this->respuestaExito(200, 'Saldo pendiente obtenido', $saldos);
+        } catch (Exception $e) {
+            return $this->respuestaError(500, 'Error al obtener el saldo pendiente: ' . $e->getMessage());
+        }
     }
 
-    private function respuestaError($codigo, $mensaje) {
-        http_response_code($codigo);
-        echo json_encode([
-            'status'  => 'failed',
-            'message' => $mensaje
-        ]);
+    public function registrarDescuento($data) {
+        try {
+            if (empty($data['personal_id']) || empty($data['anho'])) {
+                return $this->respuestaError(400, 'El funcionario y la gestión son requeridos');
+            }
+            if (!isset($data['horas_descontadas']) || (float)$data['horas_descontadas'] <= 0) {
+                return $this->respuestaError(400, 'Las horas a descontar deben ser mayores a cero');
+            }
+            if (!$this->DCompensaciones->personalExiste($data['personal_id'])) {
+                return $this->respuestaError(404, 'El funcionario seleccionado no existe o está inactivo');
+            }
+
+            $saldoNeto = $this->DCompensaciones->getSaldoNetoGestion($data['personal_id'], $data['anho']);
+
+            if ((float)$data['horas_descontadas'] > $saldoNeto) {
+                return $this->respuestaError(
+                    400,
+                    "El descuento (" . number_format((float)$data['horas_descontadas'], 2) . " hs) supera el saldo pendiente de esa gestión (" . number_format($saldoNeto, 2) . " hs)"
+                );
+            }
+
+            $id = $this->DCompensaciones->insertarDescuento($data);
+            return $this->respuestaExito(201, 'Descuento registrado correctamente', ['id' => $id]);
+
+        } catch (Exception $e) {
+            return $this->respuestaError(500, 'Error al registrar el descuento: ' . $e->getMessage());
+        }
     }
+
+    public function getDescuentosPorPersona($data) {
+        try {
+            if (empty($data['personal_id'])) {
+                return $this->respuestaError(400, 'El funcionario es requerido');
+            }
+
+            $descuentos = $this->DCompensaciones->getDescuentosPorPersona($data['personal_id']);
+            return $this->respuestaExito(200, 'Descuentos obtenidos', $descuentos);
+        } catch (Exception $e) {
+            return $this->respuestaError(500, 'Error al obtener descuentos: ' . $e->getMessage());
+        }
+    }
+
+    public function eliminarDescuento($data) {
+        try {
+            if (empty($data['id'])) {
+                return $this->respuestaError(400, 'El ID del descuento es requerido');
+            }
+
+            $filas = $this->DCompensaciones->eliminarDescuento($data['id']);
+
+            if ($filas === 0) {
+                return $this->respuestaError(404, 'Descuento no encontrado');
+            }
+
+            return $this->respuestaExito(200, 'Descuento eliminado correctamente');
+        } catch (Exception $e) {
+            return $this->respuestaError(500, 'Error al eliminar el descuento: ' . $e->getMessage());
+        }
+    }
+
 }
 ?>

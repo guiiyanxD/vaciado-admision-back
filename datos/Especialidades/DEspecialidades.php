@@ -1,5 +1,9 @@
 <?php
-require_once("../config/Pgsql.php");
+
+namespace Admision\Datos\Especialidades;
+
+use Admision\Config\PgsqlConnection;
+use PDO;
 
 class DEspecialidades{
     

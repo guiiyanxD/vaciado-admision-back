@@ -1,5 +1,11 @@
 <?php
 
+namespace Admision\Config;
+
+use PDO;
+use PDOException;
+use Exception;
+
 class PgsqlConnection {
 
     private static $instance = null;

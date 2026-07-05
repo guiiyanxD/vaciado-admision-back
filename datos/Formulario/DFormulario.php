@@ -2,11 +2,16 @@
 
 /**
  * Modelo de Datos Refactorizado para Censo y Camas Prestadas
- * 
+ *
  * Maneja operaciones CRUD con PostgreSQL
  */
-require_once("../config/connection.php");
-require_once("../config/Pgsql.php");
+
+namespace Admision\Datos\Formulario;
+
+use Admision\Config\PgsqlConnection;
+use PDO;
+use Exception;
+
 class DFormulario {
     
     private $conexion;
@@ -52,14 +57,15 @@ class DFormulario {
     }
 
     public function getTotalAyer($fecha, $servicio){
-        $query = "SELECT total FROM censo  
-                  WHERE fecha = (select MAX(fecha) from censo) AND servicio = :servicio";
+        $query = "SELECT total FROM censo
+                  WHERE fecha = :fecha AND servicio = :servicio";
         $stmt = $this->pdo->prepare($query);
         $stmt->execute([
+            ':fecha' => $fecha,
             ':servicio' => $servicio
         ]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
-        return (int)$row['total'];
+        return $row ? (int)$row['total'] : null;
     }
 
     /**
@@ -402,34 +408,13 @@ class DFormulario {
         return $censo;
     }
 
-    public function obtenerCensoCompletoAgruparMes($fechaInicio, $fechaFin, $servicio) {
-        $queryCenso = "SELECT extract(month from fecha) as mes, extract(year from fecha) as anho, fecha, servicio, ingreso, ingreso_traslado, egreso, egreso_traslado, obito, aislamiento, 
-        bloqueada, total FROM censo WHERE fecha >= :fechaInicio AND fecha <= :fechaFin AND servicio = :servicio group by  anho, mes, fecha, servicio, ingreso, ingreso_traslado, egreso, egreso_traslado, obito, aislamiento, bloqueada, total order by anho, mes";
-        $stmt = $this->pdo->prepare($queryCenso);
-        $stmt->execute([
-            ':fechaInicio' => $fechaInicio,
-            ':fechaFin' => $fechaFin,
-            ':servicio' => $servicio
-        ]);
-
-        $censo = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-        if (!$censo) {
-            return null;
-        }
-
-        // Obtener camas prestadas
-        //$censo['camas_prestadas'] = $this->obtenerCamasPrestadas($fechaInicio, $servicio);
-
-        return $censo;
-    }
-
-    public function reporteMensual($fechaInicio, $fechaFin){
+    public function reporteMensual($fechaInicio, $fechaFin, $detalle = true){
         $movimientos = ['ingreso', 'ingreso_traslado', 'egreso', 'egreso_traslado', 'obito', 'aislamiento', 'bloqueada', 'total'];
+        $formatoPeriodo = $detalle ? 'YYYY-MM-DD' : 'YYYY-MM';
 
         for($i=0; $i < count($movimientos); $i++){
-            $queryCenso = "SELECT 
-                TO_CHAR(fecha, 'YYYY-MM-DD') AS PERIODO,
+            $queryCenso = "SELECT
+                TO_CHAR(fecha, '{$formatoPeriodo}') AS PERIODO,
                 SUM(CASE WHEN servicio = 'Medicina Interna' THEN " . $movimientos[$i] . " ELSE 0 END) AS Medicina_Interna,
                 SUM(CASE WHEN servicio = 'Medicina Cirugia' THEN " . $movimientos[$i] . " ELSE 0 END) AS Medicina_Cirugia,
                 SUM(CASE WHEN servicio = 'Infectologia' THEN " . $movimientos[$i] . " ELSE 0 END) AS Infectologia,
@@ -461,6 +446,132 @@ class DFormulario {
         }
 
         return $censo;
+    }
+
+    /**
+     * Reporte de camas prestadas por rango de fechas, servicio, especialidad y tipo de ingreso
+     *
+     * @param string $fechaInicio
+     * @param string $fechaFin
+     * @param string $servicio 'todos' para no filtrar por servicio (quién presta la cama)
+     * @param string $especialidad 'todas' para no filtrar por especialidad (del paciente que la ocupa)
+     * @param string $tipoIngreso 'AMBOS' para no filtrar por tipo de ingreso
+     * @return array{detalle: array, totales: array}
+     */
+    public function reporteCamasPrestadas($fechaInicio, $fechaFin, $servicio, $especialidad, $tipoIngreso) {
+        $condiciones = "WHERE fecha BETWEEN :fechaInicio AND :fechaFin";
+        $params = [
+            ':fechaInicio' => $fechaInicio,
+            ':fechaFin' => $fechaFin
+        ];
+
+        if ($servicio && $servicio !== 'todos') {
+            $condiciones .= " AND servicio = :servicio";
+            $params[':servicio'] = $servicio;
+        }
+
+        if ($especialidad && $especialidad !== 'todas') {
+            $condiciones .= " AND especialidad = :especialidad";
+            $params[':especialidad'] = $especialidad;
+        }
+
+        if ($tipoIngreso && $tipoIngreso !== 'AMBOS') {
+            $condiciones .= " AND tipo_ingreso = :tipoIngreso";
+            $params[':tipoIngreso'] = $tipoIngreso;
+        }
+
+        $queryDetalle = "SELECT fecha, servicio, especialidad, cantidad, tipo_ingreso
+                          FROM camas_prestadas
+                          {$condiciones}
+                          ORDER BY fecha, especialidad";
+        $stmt = $this->pdo->prepare($queryDetalle);
+        $stmt->execute($params);
+        $detalle = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $queryTotales = "SELECT especialidad, tipo_ingreso, SUM(cantidad) AS total
+                          FROM camas_prestadas
+                          {$condiciones}
+                          GROUP BY especialidad, tipo_ingreso
+                          ORDER BY especialidad, tipo_ingreso";
+        $stmt = $this->pdo->prepare($queryTotales);
+        $stmt->execute($params);
+        $totales = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        return [
+            'detalle' => $detalle,
+            'totales' => $totales
+        ];
+    }
+
+    /**
+     * KPIs de ocupación, flujo y clínicos, agrupados por servicio, para un rango de fechas.
+     *
+     * @param string $fechaInicio
+     * @param string $fechaFin
+     * @return array Un elemento por servicio con los 6 KPIs calculados
+     */
+    public function reporteKpis($fechaInicio, $fechaFin) {
+        $params = [
+            ':fechaInicio' => $fechaInicio,
+            ':fechaFin' => $fechaFin
+        ];
+
+        $queryCenso = "SELECT
+                servicio,
+                SUM(dotacion) AS dotacion_total,
+                SUM(libre) AS libre_total,
+                SUM(bloqueada) AS bloqueada_total,
+                SUM(total) AS total_pacientes,
+                SUM(ingreso) AS ingreso_directo_total,
+                SUM(ingreso_traslado) AS ingreso_traslado_total,
+                SUM(egreso) AS egreso_directo_total,
+                SUM(egreso_traslado) AS egreso_traslado_total,
+                SUM(aislamiento) AS aislamiento_total
+            FROM censo
+            WHERE fecha BETWEEN :fechaInicio AND :fechaFin
+            GROUP BY servicio
+            ORDER BY servicio";
+        $stmt = $this->pdo->prepare($queryCenso);
+        $stmt->execute($params);
+        $filasCenso = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        $queryCamasPrestadas = "SELECT servicio, SUM(cantidad) AS camas_prestadas_total
+            FROM camas_prestadas
+            WHERE fecha BETWEEN :fechaInicio AND :fechaFin
+            GROUP BY servicio";
+        $stmt = $this->pdo->prepare($queryCamasPrestadas);
+        $stmt->execute($params);
+        $camasPrestadasPorServicio = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $fila) {
+            $camasPrestadasPorServicio[$fila['servicio']] = (int)$fila['camas_prestadas_total'];
+        }
+
+        $resultado = [];
+        foreach ($filasCenso as $fila) {
+            $dotacion = (int)$fila['dotacion_total'];
+            $totalPacientes = (int)$fila['total_pacientes'];
+            $ingresoDirecto = (int)$fila['ingreso_directo_total'];
+            $ingresoTraslado = (int)$fila['ingreso_traslado_total'];
+            $egresoDirecto = (int)$fila['egreso_directo_total'];
+            $egresoTraslado = (int)$fila['egreso_traslado_total'];
+            $totalIngresos = $ingresoDirecto + $ingresoTraslado;
+            $totalEgresos = $egresoDirecto + $egresoTraslado;
+            $camasPrestadas = $camasPrestadasPorServicio[$fila['servicio']] ?? 0;
+
+            $resultado[] = [
+                'servicio' => $fila['servicio'],
+                'tasa_ocupacion' => $dotacion > 0 ? round(($dotacion - (int)$fila['libre_total']) / $dotacion * 100, 1) : null,
+                'pct_bloqueadas' => $dotacion > 0 ? round((int)$fila['bloqueada_total'] / $dotacion * 100, 1) : null,
+                'indice_dependencia_camas_prestadas' => $totalPacientes > 0 ? round($camasPrestadas / $totalPacientes * 100, 1) : null,
+                'pct_ingreso_directo' => $totalIngresos > 0 ? round($ingresoDirecto / $totalIngresos * 100, 1) : null,
+                'pct_ingreso_traslado' => $totalIngresos > 0 ? round($ingresoTraslado / $totalIngresos * 100, 1) : null,
+                'pct_egreso_directo' => $totalEgresos > 0 ? round($egresoDirecto / $totalEgresos * 100, 1) : null,
+                'pct_egreso_traslado' => $totalEgresos > 0 ? round($egresoTraslado / $totalEgresos * 100, 1) : null,
+                'dias_cama_aislamiento' => (int)$fila['aislamiento_total']
+            ];
+        }
+
+        return $resultado;
     }
 }
 

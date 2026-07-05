@@ -1,6 +1,14 @@
 {
     "require": {
         "google/cloud-bigquery": "^1.34",
-        "google/auth": "^1.47"
+        "google/auth": "^1.47",
+        "phpoffice/phpspreadsheet": "^5.8"
+    },
+    "autoload": {
+        "psr-4": {
+            "Admision\\Config\\": "config/",
+            "Admision\\Negocio\\": "negocio/",
+            "Admision\\Datos\\": "datos/"
+        }
     }
 }

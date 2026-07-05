@@ -1,5 +1,10 @@
-<?php 
-require_once("../config/Pgsql.php");
+<?php
+
+namespace Admision\Datos\Servicios;
+
+use Admision\Config\PgsqlConnection;
+use PDO;
+
 class DServicios{
 
     private $conn;

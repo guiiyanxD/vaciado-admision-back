@@ -1,6 +1,10 @@
 <?php
-require_once("../config/connection.php");
-require_once("../config/Pgsql.php");
+
+namespace Admision\Datos\Compensaciones;
+
+use Admision\Config\PgsqlConnection;
+use PDO;
+use Exception;
 
 class DCompensaciones {
 
@@ -276,13 +280,20 @@ class DCompensaciones {
                          p.nombres,
                          p.apellidos,
                          c.anho,
+                         COALESCE(SUM(c.horas_programadas), 0)                   AS total_programadas,
+                         COALESCE(SUM(c.horas_pagadas), 0)                       AS total_pagadas,
                          COALESCE(SUM(c.horas_programadas - c.horas_pagadas), 0) AS horas_impagas,
                          COALESCE(SUM(c.permisos_horas), 0)                      AS permisos_tomados,
-                         COALESCE(SUM(c.saldo_horas), 0)                         AS saldo_compensacion
+                         COALESCE(SUM(c.saldo_horas), 0) - COALESCE(d.total_descontado, 0) AS saldo_compensacion
                   FROM personal p
                   LEFT JOIN compensaciones c ON c.personal_id = p.id
+                  LEFT JOIN (
+                      SELECT personal_id, anho, SUM(horas_descontadas) AS total_descontado
+                      FROM compensaciones_descuentos
+                      GROUP BY personal_id, anho
+                  ) d ON d.personal_id = p.id AND d.anho = c.anho
                   {$whereAnho}
-                  GROUP BY p.id, p.nombres, p.apellidos, c.anho
+                  GROUP BY p.id, p.nombres, p.apellidos, c.anho, d.total_descontado
                   ORDER BY p.apellidos, p.nombres, c.anho NULLS LAST";
         $stmt = $this->pdo->prepare($query);
         $stmt->execute($params);
@@ -297,6 +308,89 @@ class DCompensaciones {
         $stmt  = $this->pdo->prepare($query);
         $stmt->execute();
         return $stmt->fetchAll(PDO::FETCH_COLUMN);
+    }
+
+    // =====================================================
+    // DESCUENTOS DE HORAS PENDIENTES
+    // =====================================================
+
+    /**
+     * Saldo pendiente por gestión para una persona, neto de descuentos ya aplicados.
+     * Ordenado ascendente por año (la gestión más antigua primero).
+     */
+    public function getSaldoPendientePorGestion($personalId) {
+        $query = "SELECT c.anho,
+                         SUM(c.saldo_horas)                          AS saldo_bruto,
+                         COALESCE(d.total_descontado, 0)             AS horas_descontadas,
+                         SUM(c.saldo_horas) - COALESCE(d.total_descontado, 0) AS saldo_neto
+                  FROM compensaciones c
+                  LEFT JOIN (
+                      SELECT anho, SUM(horas_descontadas) AS total_descontado
+                      FROM compensaciones_descuentos
+                      WHERE personal_id = :personal_id
+                      GROUP BY anho
+                  ) d ON d.anho = c.anho
+                  WHERE c.personal_id = :personal_id
+                  GROUP BY c.anho, d.total_descontado
+                  ORDER BY c.anho ASC";
+        $stmt = $this->pdo->prepare($query);
+        $stmt->execute([':personal_id' => (int)$personalId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    /**
+     * Saldo neto pendiente de una persona en una gestión puntual (para validar un descuento).
+     */
+    public function getSaldoNetoGestion($personalId, $anho) {
+        $query = "SELECT
+                      COALESCE((SELECT SUM(saldo_horas) FROM compensaciones
+                                WHERE personal_id = :personal_id AND anho = :anho), 0)
+                      -
+                      COALESCE((SELECT SUM(horas_descontadas) FROM compensaciones_descuentos
+                                WHERE personal_id = :personal_id2 AND anho = :anho2), 0)
+                      AS saldo_neto";
+        $stmt = $this->pdo->prepare($query);
+        $stmt->execute([
+            ':personal_id'  => (int)$personalId,
+            ':anho'         => (int)$anho,
+            ':personal_id2' => (int)$personalId,
+            ':anho2'        => (int)$anho
+        ]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ? (float)$row['saldo_neto'] : 0.0;
+    }
+
+    public function insertarDescuento($data) {
+        $query = "INSERT INTO compensaciones_descuentos (personal_id, anho, horas_descontadas, fecha_descuento, motivo)
+                  VALUES (:personal_id, :anho, :horas_descontadas, :fecha_descuento, :motivo)
+                  RETURNING id";
+        $stmt = $this->pdo->prepare($query);
+        $stmt->execute([
+            ':personal_id'       => (int)$data['personal_id'],
+            ':anho'              => (int)$data['anho'],
+            ':horas_descontadas' => (float)$data['horas_descontadas'],
+            ':fecha_descuento'   => $data['fecha_descuento'] ?? date('Y-m-d'),
+            ':motivo'            => $data['motivo'] ?? null
+        ]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return (int)$row['id'];
+    }
+
+    public function getDescuentosPorPersona($personalId) {
+        $query = "SELECT id, personal_id, anho, horas_descontadas, fecha_descuento, motivo, creado_en
+                  FROM compensaciones_descuentos
+                  WHERE personal_id = :personal_id
+                  ORDER BY anho ASC, fecha_descuento ASC";
+        $stmt = $this->pdo->prepare($query);
+        $stmt->execute([':personal_id' => (int)$personalId]);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
+
+    public function eliminarDescuento($id) {
+        $query = "DELETE FROM compensaciones_descuentos WHERE id = :id";
+        $stmt  = $this->pdo->prepare($query);
+        $stmt->execute([':id' => (int)$id]);
+        return $stmt->rowCount();
     }
 }
 ?>

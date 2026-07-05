@@ -1,22 +1,21 @@
-<?php 
-require_once('../datos/Especialidades/DEspecialidades.php');
+<?php
+
+namespace Admision\Negocio\Especialidades;
+
+use Admision\Datos\Especialidades\DEspecialidades;
+use Admision\Negocio\RespuestaJson;
+
 class NEspecialidades{
+    use RespuestaJson;
 
     private $capaDatos;
 
     public function __construct(){
-
         $this->capaDatos = new DEspecialidades();
     }
 
     public function getAllEspecialidades(){
         $especialidades = $this->capaDatos->getAllEspecialidades();
-        http_response_code(200);
-        echo json_encode([            
-            'status' => 'success',
-            'data' => $especialidades
-        ]);
-        exit();
-
+        $this->respuestaExito(200, 'Especialidades obtenidas', $especialidades);
     }
 }

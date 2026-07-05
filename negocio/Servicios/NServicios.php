@@ -1,9 +1,13 @@
 <?php
 
-require_once("../datos/Servicios/DServicios.php");
+namespace Admision\Negocio\Servicios;
+
+use Admision\Datos\Servicios\DServicios;
+use Admision\Negocio\RespuestaJson;
 
 class NServicios{
-    
+    use RespuestaJson;
+
     private $capaDatos;
 
     public function __construct(){
@@ -12,11 +16,6 @@ class NServicios{
 
     public function getAllServicios(){
         $servicios = $this->capaDatos->getAllServicios();
-            http_response_code(200);
-            echo json_encode([
-                'status' => 'success',
-                'data' => $servicios
-            ]);
-        exit;
+        $this->respuestaExito(200, 'Servicios obtenidos', $servicios);
     }
 }
