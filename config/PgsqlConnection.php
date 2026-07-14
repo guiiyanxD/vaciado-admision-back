@@ -12,10 +12,10 @@ class PgsqlConnection {
     private $pdo;
 
     private function __construct() {
-        $host = '127.0.0.1';
-        $dbname = 'movimiento_hospitalario_2';
-        $user = 'postgres';
-        $password = '1234';
+        $host = self::env('DB_HOST');
+        $dbname = self::env('DB_NAME');
+        $user = self::env('DB_USER');
+        $password = self::env('DB_PASSWORD');
 
         $dsn = "pgsql:host=$host;dbname=$dbname";
         
@@ -37,6 +37,10 @@ class PgsqlConnection {
 
     public function getConnection() {
         return $this->pdo;
+    }
+
+    private static function env($key) {
+        return $_ENV[$key] ?? getenv($key) ?: null;
     }
 }
 

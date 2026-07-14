@@ -6,6 +6,10 @@ use Admision\Negocio\Servicios\NServicios;
 use Admision\Negocio\Especialidades\NEspecialidades;
 use Admision\Negocio\Compensaciones\NCompensaciones;
 
+// Carga variables desde .env si existe (desarrollo local).
+// En Cloud Run las variables ya vienen inyectadas en el entorno, por eso safeLoad().
+Dotenv\Dotenv::createImmutable(dirname(__DIR__))->safeLoad();
+
 // ========================================
 // CONFIGURACIÓN CORS
 // ========================================
